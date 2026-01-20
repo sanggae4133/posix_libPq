@@ -53,6 +53,7 @@ endif()
 set(PQ_SOURCES
     src/core/Connection.cpp
     src/core/Transaction.cpp
+    src/core/ConnectionPool.cpp
 )
 
 set(PQ_HEADERS
@@ -63,6 +64,7 @@ set(PQ_HEADERS
     include/pq/core/QueryResult.hpp
     include/pq/core/Connection.hpp
     include/pq/core/Transaction.hpp
+    include/pq/core/ConnectionPool.hpp
     include/pq/orm/Entity.hpp
     include/pq/orm/Mapper.hpp
     include/pq/orm/Repository.hpp

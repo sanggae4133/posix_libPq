@@ -1,0 +1,31 @@
+# posixLibPq Development Guidelines
+
+Auto-generated from all feature plans. Last updated: 2026-01-20
+
+## Active Technologies
+- PostgreSQL (libpq C API 직접 사용) (001-entity-orm-mapping)
+
+- C++17 (ISO/IEC 14882:2017) - C++20/23 기능 사용 금지 + libpq 15.x (PQlibVersion >= 150007) (001-entity-orm-mapping)
+
+## Project Structure
+
+```text
+src/
+tests/
+```
+
+## Commands
+
+# Add commands for C++17 (ISO/IEC 14882:2017) - C++20/23 기능 사용 금지
+
+## Code Style
+
+C++17 (ISO/IEC 14882:2017) - C++20/23 기능 사용 금지: Follow standard conventions
+
+## Recent Changes
+- 001-entity-orm-mapping: Added C++17 (ISO/IEC 14882:2017) - C++20/23 기능 사용 금지 + libpq 15.x (PQlibVersion >= 150007)
+
+- 001-entity-orm-mapping: Added C++17 (ISO/IEC 14882:2017) - C++20/23 기능 사용 금지 + libpq 15.x (PQlibVersion >= 150007)
+
+<!-- MANUAL ADDITIONS START -->
+<!-- MANUAL ADDITIONS END -->

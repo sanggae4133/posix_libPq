@@ -18,6 +18,7 @@
 #include "core/QueryResult.hpp"
 #include "core/Connection.hpp"
 #include "core/Transaction.hpp"
+#include "core/ConnectionPool.hpp"
 
 // ORM components
 #include "orm/Entity.hpp"
@@ -37,6 +38,9 @@ using core::QueryResult;
 using core::Row;
 using core::Transaction;
 using core::Savepoint;
+using core::ConnectionPool;
+using core::PooledConnection;
+using core::PoolConfig;
 
 using orm::Repository;
 using orm::MapperConfig;

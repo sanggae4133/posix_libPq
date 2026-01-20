@@ -4,6 +4,7 @@
 add_executable(pq_unit_tests
     unit/test_result.cpp
     unit/test_types.cpp
+    unit/test_entity.cpp
 )
 
 target_link_libraries(pq_unit_tests
