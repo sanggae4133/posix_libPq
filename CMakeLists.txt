@@ -38,13 +38,40 @@ endif()
 # Find Dependencies
 # ============================================================================
 
-# Find PostgreSQL (libpq)
-find_package(PostgreSQL REQUIRED)
+# PostgreSQL (libpq) - Manual path options
+# Use these to override automatic detection:
+#   cmake .. -DPQ_LIBPQ_INCLUDE_DIR=/path/to/include
+#   cmake .. -DPQ_LIBPQ_LIBRARY=/path/to/libpq.so
+set(PQ_LIBPQ_INCLUDE_DIR "" CACHE PATH "Manual path to libpq-fe.h directory")
+set(PQ_LIBPQ_LIBRARY "" CACHE FILEPATH "Manual path to libpq library (libpq.so/dylib/lib)")
 
-if(PostgreSQL_FOUND)
-    message(STATUS "Found PostgreSQL: ${PostgreSQL_VERSION_STRING}")
-    message(STATUS "  Include: ${PostgreSQL_INCLUDE_DIRS}")
-    message(STATUS "  Library: ${PostgreSQL_LIBRARIES}")
+if(PQ_LIBPQ_INCLUDE_DIR AND PQ_LIBPQ_LIBRARY)
+    # Use manually specified paths
+    message(STATUS "Using manually specified PostgreSQL paths:")
+    message(STATUS "  Include: ${PQ_LIBPQ_INCLUDE_DIR}")
+    message(STATUS "  Library: ${PQ_LIBPQ_LIBRARY}")
+    
+    # Validate paths exist
+    if(NOT EXISTS "${PQ_LIBPQ_INCLUDE_DIR}/libpq-fe.h")
+        message(FATAL_ERROR "libpq-fe.h not found in ${PQ_LIBPQ_INCLUDE_DIR}")
+    endif()
+    if(NOT EXISTS "${PQ_LIBPQ_LIBRARY}")
+        message(FATAL_ERROR "Library not found: ${PQ_LIBPQ_LIBRARY}")
+    endif()
+    
+    # Create imported target for consistency
+    set(PostgreSQL_INCLUDE_DIRS "${PQ_LIBPQ_INCLUDE_DIR}")
+    set(PostgreSQL_LIBRARIES "${PQ_LIBPQ_LIBRARY}")
+    set(PostgreSQL_FOUND TRUE)
+else()
+    # Auto-detect using CMake's FindPostgreSQL module
+    find_package(PostgreSQL REQUIRED)
+    
+    if(PostgreSQL_FOUND)
+        message(STATUS "Found PostgreSQL: ${PostgreSQL_VERSION_STRING}")
+        message(STATUS "  Include: ${PostgreSQL_INCLUDE_DIRS}")
+        message(STATUS "  Library: ${PostgreSQL_LIBRARIES}")
+    endif()
 endif()
 
 # ============================================================================
