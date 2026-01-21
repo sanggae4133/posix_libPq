@@ -5,7 +5,7 @@
 
 RAII 리소스 관리, 컴파일 타임 타입 안전성, Zero-Cost 추상화를 제공하는 현대적인 C++17 PostgreSQL ORM 라이브러리입니다.
 
-[English](README.md) | [문서](docs/README.md)
+[English](README.md) | [문서](docs/ko/README.md)
 
 ## 특징
 
@@ -169,14 +169,26 @@ cmake --build .
 | `PQ_BUILD_EXAMPLES` | ON | 예제 프로그램 빌드 |
 | `PQ_BUILD_TESTS` | ON | 단위 테스트 빌드 |
 | `PQ_RUN_TESTS` | OFF | 빌드 후 자동 테스트 실행 |
-| `PQ_INSTALL` | ON | 설치 타겟 생성 |
+| `PQ_INSTALL` | ON | `cmake --install`용 설치 타겟 생성 |
+| `PQ_LIBPQ_INCLUDE_DIR` | (자동) | `libpq-fe.h` 디렉토리 수동 경로 |
+| `PQ_LIBPQ_LIBRARY` | (자동) | libpq 라이브러리 수동 경로 |
+
+### PostgreSQL 수동 경로 지정
+
+CMake가 libpq를 자동으로 찾지 못할 때:
+
+```bash
+cmake .. \
+  -DPQ_LIBPQ_INCLUDE_DIR=/path/to/include \
+  -DPQ_LIBPQ_LIBRARY=/path/to/libpq.so
+```
 
 ### macOS Homebrew libpq 사용 시
 
 ```bash
 cmake .. \
-  -DPostgreSQL_INCLUDE_DIR=/opt/homebrew/opt/libpq/include \
-  -DPostgreSQL_LIBRARY=/opt/homebrew/opt/libpq/lib/libpq.dylib
+  -DPQ_LIBPQ_INCLUDE_DIR=/opt/homebrew/opt/libpq/include \
+  -DPQ_LIBPQ_LIBRARY=/opt/homebrew/opt/libpq/lib/libpq.dylib
 ```
 
 ## 프로젝트 구조
@@ -198,23 +210,35 @@ posixLibPq/
 │   │   └── Repository.hpp    # Repository 패턴
 │   └── pq.hpp               # 편의 헤더
 ├── src/core/                # 구현 파일
+├── cmake/                   # CMake 패키지 설정
+│   └── pqConfig.cmake.in    # find_package(pq) 지원 템플릿
 ├── docs/                    # 문서
+│   └── ko/                  # 한글 문서
 ├── examples/                # 예제 프로그램
 ├── tests/                   # 단위 테스트
 └── CMakeLists.txt
 ```
 
+### cmake/ 디렉토리
+
+`cmake/pqConfig.cmake.in` 파일은 CMake 패키지 설정 템플릿입니다. `cmake --install`을 실행하면 `pqConfig.cmake`가 생성되어 다른 프로젝트에서 다음과 같이 사용할 수 있습니다:
+
+```cmake
+find_package(pq REQUIRED)
+target_link_libraries(your_app PRIVATE pq::pq)
+```
+
 ## 문서
 
-- [시작하기](docs/getting-started.md)
-- [Entity 매핑](docs/entity-mapping.md)
-- [Repository 패턴](docs/repository-pattern.md)
-- [트랜잭션](docs/transactions.md)
-- [커넥션 풀](docs/connection-pool.md)
-- [에러 핸들링](docs/error-handling.md)
-- [커스텀 쿼리](docs/custom-queries.md)
-- [API 레퍼런스](docs/api-reference.md)
-- [타입 시스템](docs/type-system.md)
+- [시작하기](docs/ko/getting-started.md)
+- [Entity 매핑](docs/ko/entity-mapping.md)
+- [Repository 패턴](docs/ko/repository-pattern.md)
+- [트랜잭션](docs/ko/transactions.md)
+- [커넥션 풀](docs/ko/connection-pool.md)
+- [에러 핸들링](docs/ko/error-handling.md)
+- [커스텀 쿼리](docs/ko/custom-queries.md)
+- [API 레퍼런스](docs/ko/api-reference.md)
+- [타입 시스템](docs/ko/type-system.md)
 
 ## 설계 원칙
 

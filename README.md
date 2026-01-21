@@ -5,7 +5,7 @@
 
 A modern C++17 PostgreSQL ORM library featuring RAII resource management, compile-time type safety, and zero-cost abstractions.
 
-[한국어 문서](README.ko.md) | [Documentation](docs/README.md)
+[한국어](README.ko.md) | [Documentation](docs/README.md) | [한국어 문서](docs/ko/README.md)
 
 ## Features
 
@@ -169,14 +169,26 @@ cmake --build .
 | `PQ_BUILD_EXAMPLES` | ON | Build example programs |
 | `PQ_BUILD_TESTS` | ON | Build unit tests |
 | `PQ_RUN_TESTS` | OFF | Run tests after build |
-| `PQ_INSTALL` | ON | Generate install target |
+| `PQ_INSTALL` | ON | Generate install target for `cmake --install` |
+| `PQ_LIBPQ_INCLUDE_DIR` | (auto) | Manual path to `libpq-fe.h` directory |
+| `PQ_LIBPQ_LIBRARY` | (auto) | Manual path to libpq library |
+
+### Manual PostgreSQL Path
+
+If CMake cannot find libpq automatically:
+
+```bash
+cmake .. \
+  -DPQ_LIBPQ_INCLUDE_DIR=/path/to/include \
+  -DPQ_LIBPQ_LIBRARY=/path/to/libpq.so
+```
 
 ### macOS with Homebrew libpq
 
 ```bash
 cmake .. \
-  -DPostgreSQL_INCLUDE_DIR=/opt/homebrew/opt/libpq/include \
-  -DPostgreSQL_LIBRARY=/opt/homebrew/opt/libpq/lib/libpq.dylib
+  -DPQ_LIBPQ_INCLUDE_DIR=/opt/homebrew/opt/libpq/include \
+  -DPQ_LIBPQ_LIBRARY=/opt/homebrew/opt/libpq/lib/libpq.dylib
 ```
 
 ## Project Structure
@@ -198,10 +210,22 @@ posixLibPq/
 │   │   └── Repository.hpp    # Repository pattern
 │   └── pq.hpp               # Convenience header
 ├── src/core/                # Implementation files
+├── cmake/                   # CMake package config
+│   └── pqConfig.cmake.in    # find_package(pq) support template
 ├── docs/                    # Documentation
+│   └── ko/                  # Korean documentation
 ├── examples/                # Example programs
 ├── tests/                   # Unit tests
 └── CMakeLists.txt
+```
+
+### cmake/ Directory
+
+The `cmake/pqConfig.cmake.in` file is a template for CMake package configuration. When you run `cmake --install`, it generates `pqConfig.cmake` that allows other projects to use this library via:
+
+```cmake
+find_package(pq REQUIRED)
+target_link_libraries(your_app PRIVATE pq::pq)
 ```
 
 ## Documentation

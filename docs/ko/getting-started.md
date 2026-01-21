@@ -125,16 +125,40 @@ cmake --build .
 | `PQ_BUILD_EXAMPLES` | ON | 예제 프로그램 빌드 |
 | `PQ_BUILD_TESTS` | ON | 단위 테스트 빌드 |
 | `PQ_RUN_TESTS` | OFF | 빌드 후 자동 테스트 실행 |
-| `PQ_INSTALL` | ON | 설치 타겟 생성 |
+| `PQ_INSTALL` | ON | `cmake --install`용 설치 타겟 생성 |
+| `PQ_LIBPQ_INCLUDE_DIR` | (자동) | `libpq-fe.h` 디렉토리 수동 경로 |
+| `PQ_LIBPQ_LIBRARY` | (자동) | libpq 라이브러리 파일 수동 경로 |
 
-### macOS에서 Homebrew libpq 사용 시
+#### 옵션 상세 설명
 
-libpq가 Homebrew로 설치되었는데 찾지 못하는 경우:
+- **`PQ_INSTALL`**: `ON`이면 `cmake --install .` 명령으로 헤더, 라이브러리, CMake 설정 파일을 시스템에 설치할 수 있는 타겟을 생성합니다. 다른 프로젝트의 서브디렉토리로 사용할 때는 `OFF`로 설정하세요.
+
+- **`PQ_LIBPQ_INCLUDE_DIR` / `PQ_LIBPQ_LIBRARY`**: 자동 탐지가 실패할 때 PostgreSQL 경로를 수동으로 지정합니다. 두 옵션을 함께 설정해야 합니다.
+
+### PostgreSQL 수동 경로 설정
+
+CMake가 libpq를 자동으로 찾지 못할 때 경로를 직접 지정할 수 있습니다:
 
 ```bash
 cmake .. \
-  -DPostgreSQL_INCLUDE_DIR=/opt/homebrew/opt/libpq/include \
-  -DPostgreSQL_LIBRARY=/opt/homebrew/opt/libpq/lib/libpq.dylib
+  -DPQ_LIBPQ_INCLUDE_DIR=/path/to/include \
+  -DPQ_LIBPQ_LIBRARY=/path/to/libpq.so
+```
+
+### macOS에서 Homebrew libpq 사용 시
+
+```bash
+cmake .. \
+  -DPQ_LIBPQ_INCLUDE_DIR=/opt/homebrew/opt/libpq/include \
+  -DPQ_LIBPQ_LIBRARY=/opt/homebrew/opt/libpq/lib/libpq.dylib
+```
+
+### Linux 일반적인 경로
+
+```bash
+cmake .. \
+  -DPQ_LIBPQ_INCLUDE_DIR=/usr/include/postgresql \
+  -DPQ_LIBPQ_LIBRARY=/usr/lib/x86_64-linux-gnu/libpq.so
 ```
 
 ## 빠른 시작

@@ -125,16 +125,40 @@ cmake --build .
 | `PQ_BUILD_EXAMPLES` | ON | Build example programs |
 | `PQ_BUILD_TESTS` | ON | Build unit tests |
 | `PQ_RUN_TESTS` | OFF | Run tests automatically after build |
-| `PQ_INSTALL` | ON | Generate install target |
+| `PQ_INSTALL` | ON | Generate install target for `cmake --install` |
+| `PQ_LIBPQ_INCLUDE_DIR` | (auto) | Manual path to `libpq-fe.h` directory |
+| `PQ_LIBPQ_LIBRARY` | (auto) | Manual path to libpq library file |
 
-### macOS with Homebrew libpq
+#### Option Details
 
-If libpq is installed via Homebrew and not found:
+- **`PQ_INSTALL`**: When `ON`, generates install targets that allow `cmake --install .` to install headers, libraries, and CMake config files to the system. Set to `OFF` when using as a subdirectory in another project.
+
+- **`PQ_LIBPQ_INCLUDE_DIR` / `PQ_LIBPQ_LIBRARY`**: Manually specify PostgreSQL paths when automatic detection fails. Both must be set together.
+
+### Manual PostgreSQL Path Configuration
+
+If CMake cannot find libpq automatically, you can specify paths manually:
 
 ```bash
 cmake .. \
-  -DPostgreSQL_INCLUDE_DIR=/opt/homebrew/opt/libpq/include \
-  -DPostgreSQL_LIBRARY=/opt/homebrew/opt/libpq/lib/libpq.dylib
+  -DPQ_LIBPQ_INCLUDE_DIR=/path/to/include \
+  -DPQ_LIBPQ_LIBRARY=/path/to/libpq.so
+```
+
+### macOS with Homebrew libpq
+
+```bash
+cmake .. \
+  -DPQ_LIBPQ_INCLUDE_DIR=/opt/homebrew/opt/libpq/include \
+  -DPQ_LIBPQ_LIBRARY=/opt/homebrew/opt/libpq/lib/libpq.dylib
+```
+
+### Linux Common Paths
+
+```bash
+cmake .. \
+  -DPQ_LIBPQ_INCLUDE_DIR=/usr/include/postgresql \
+  -DPQ_LIBPQ_LIBRARY=/usr/lib/x86_64-linux-gnu/libpq.so
 ```
 
 ## Quick Start
