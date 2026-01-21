@@ -16,7 +16,13 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # ============================================================================
 # Build Options
 # ============================================================================
-option(PQ_BUILD_EXAMPLES "Build example programs" ON)
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    # Standalone: 예제/테스트 ON
+    option(PQ_BUILD_EXAMPLES "Build example programs" ON)
+else()
+    # 서브디렉토리: 예제/테스트 OFF  
+    option(PQ_BUILD_EXAMPLES "Build example programs" OFF)
+endif()
 option(PQ_BUILD_TESTS "Build unit tests" ON)
 option(PQ_RUN_TESTS "Run tests after build" OFF)
 option(PQ_INSTALL "Generate install target" ON)
