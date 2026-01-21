@@ -161,7 +161,7 @@ public:
 private:
     std::string_view tableName_;
     DescriptorList columns_;
-    const ColumnDescriptor<Entity>* primaryKey_{nullptr};
+    std::size_t primaryKeyIndex_{static_cast<std::size_t>(-1)};  // Use index instead of pointer
     
 public:
     EntityMetadata(std::string_view tableName)
@@ -208,7 +208,7 @@ public:
         columns_.push_back(std::move(desc));
         
         if (hasFlag(flags, ColumnFlags::PrimaryKey)) {
-            primaryKey_ = &columns_.back();
+            primaryKeyIndex_ = columns_.size() - 1;
         }
     }
     
@@ -221,7 +221,10 @@ public:
     }
     
     [[nodiscard]] const ColumnDescriptor<Entity>* primaryKey() const noexcept {
-        return primaryKey_;
+        if (primaryKeyIndex_ == static_cast<std::size_t>(-1)) {
+            return nullptr;
+        }
+        return &columns_[primaryKeyIndex_];
     }
     
     [[nodiscard]] const ColumnDescriptor<Entity>* findColumn(std::string_view name) const {

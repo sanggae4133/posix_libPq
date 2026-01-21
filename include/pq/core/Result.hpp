@@ -88,9 +88,7 @@ public:
     }
     
     [[nodiscard]] static Result error(E err) {
-        Result r(T{});
-        r.data_ = std::move(err);
-        return r;
+        return Result(inPlaceError, std::move(err));
     }
     
     template<typename... Args>

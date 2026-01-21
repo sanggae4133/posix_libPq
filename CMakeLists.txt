@@ -18,6 +18,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # ============================================================================
 option(PQ_BUILD_EXAMPLES "Build example programs" ON)
 option(PQ_BUILD_TESTS "Build unit tests" ON)
+option(PQ_RUN_TESTS "Run tests after build" OFF)
 option(PQ_INSTALL "Generate install target" ON)
 
 # ============================================================================
@@ -108,13 +109,32 @@ endif()
 if(PQ_BUILD_TESTS)
     enable_testing()
     
-    # Find Google Test
+    # Try to find system-installed Google Test first
     find_package(GTest QUIET)
     
-    if(GTest_FOUND)
-        add_subdirectory(tests)
-    else()
-        message(WARNING "Google Test not found, tests will not be built")
+    if(NOT GTest_FOUND)
+        message(STATUS "Google Test not found locally, fetching from GitHub...")
+        include(FetchContent)
+        FetchContent_Declare(
+            googletest
+            GIT_REPOSITORY https://github.com/google/googletest.git
+            GIT_TAG v1.14.0
+        )
+        # For Windows: Prevent overriding the parent project's compiler/linker settings
+        set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+        FetchContent_MakeAvailable(googletest)
+    endif()
+    
+    add_subdirectory(tests)
+    
+    # Run tests after build if PQ_RUN_TESTS is ON
+    if(PQ_RUN_TESTS)
+        add_custom_target(run_tests ALL
+            COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure --verbose
+            DEPENDS pq_unit_tests
+            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+            COMMENT "Running unit tests..."
+        )
     endif()
 endif()
 
@@ -175,5 +195,6 @@ message(STATUS "  Version:         ${PROJECT_VERSION}")
 message(STATUS "  C++ Standard:    ${CMAKE_CXX_STANDARD}")
 message(STATUS "  Build Examples:  ${PQ_BUILD_EXAMPLES}")
 message(STATUS "  Build Tests:     ${PQ_BUILD_TESTS}")
+message(STATUS "  Run Tests:       ${PQ_RUN_TESTS}")
 message(STATUS "  Install:         ${PQ_INSTALL}")
 message(STATUS "")

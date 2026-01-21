@@ -94,8 +94,8 @@ int main(int argc, char* argv[]) {
     config.host = "localhost";
     config.port = 5432;
     config.database = "testdb";
-    config.user = "postgres";
-    config.password = "password";
+    config.user = "root";
+    config.password = "1234";
     
     // Alternative: use connection string
     // pq::Connection conn("host=localhost port=5432 dbname=testdb user=postgres");

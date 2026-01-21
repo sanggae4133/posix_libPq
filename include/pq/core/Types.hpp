@@ -128,23 +128,8 @@ struct PgTypeTraits<int32_t> {
     }
 };
 
-/**
- * @brief Type traits for int (alias for int32_t on most platforms)
- */
-template<>
-struct PgTypeTraits<int> {
-    static constexpr Oid pgOid = oid::INT4;
-    static constexpr const char* pgTypeName = "integer";
-    static constexpr bool isNullable = false;
-    
-    [[nodiscard]] static std::string toString(int value) {
-        return std::to_string(value);
-    }
-    
-    [[nodiscard]] static int fromString(const char* str) {
-        return std::stoi(str);
-    }
-};
+// Note: On platforms where int == int32_t (e.g., macOS ARM64), 
+// PgTypeTraits<int32_t> above already handles 'int' type.
 
 /**
  * @brief Type traits for int64_t (bigint)

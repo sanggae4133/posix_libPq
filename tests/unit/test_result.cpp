@@ -98,3 +98,101 @@ TEST_F(ResultTest, MoveSemantics) {
     std::string moved = std::move(result).value();
     EXPECT_EQ(moved, "hello");
 }
+
+// Additional edge case tests
+
+TEST_F(ResultTest, ErrorWithSqlState) {
+    auto result = DbResult<int>::error(DbError{"Connection failed", "08001", 500});
+    
+    EXPECT_TRUE(result.hasError());
+    EXPECT_EQ(result.error().message, "Connection failed");
+    EXPECT_EQ(result.error().sqlState, "08001");
+    EXPECT_EQ(result.error().errorCode, 500);
+}
+
+TEST_F(ResultTest, ValueThrowsOnError) {
+    auto result = DbResult<int>::error(DbError{"error"});
+    
+    EXPECT_THROW(result.value(), std::runtime_error);
+}
+
+TEST_F(ResultTest, ErrorThrowsOnValue) {
+    DbResult<int> result(42);
+    
+    EXPECT_THROW(result.error(), std::runtime_error);
+}
+
+TEST_F(ResultTest, MapToString) {
+    DbResult<int> result(42);
+    auto mapped = result.map([](int x) { return "value: " + std::to_string(x); });
+    
+    EXPECT_TRUE(mapped.hasValue());
+    EXPECT_EQ(mapped.value(), "value: 42");
+}
+
+TEST_F(ResultTest, MapWithDifferentType) {
+    DbResult<int> result(42);
+    auto mapped = result.map([](int x) { return std::to_string(x); });
+    
+    EXPECT_TRUE(mapped.hasValue());
+    EXPECT_EQ(mapped.value(), "42");
+}
+
+TEST_F(ResultTest, ChainedMap) {
+    DbResult<int> result(10);
+    auto mapped = result
+        .map([](int x) { return x * 2; })
+        .map([](int x) { return x + 5; });
+    
+    EXPECT_TRUE(mapped.hasValue());
+    EXPECT_EQ(mapped.value(), 25);
+}
+
+TEST_F(ResultTest, VoidResultError) {
+    auto result = DbResult<void>::error(DbError{"void error", "00000", 1});
+    
+    EXPECT_TRUE(result.hasError());
+    EXPECT_EQ(result.error().message, "void error");
+    EXPECT_EQ(result.error().sqlState, "00000");
+}
+
+TEST_F(ResultTest, InPlaceErrorConstruction) {
+    Result<int, DbError> result(inPlaceError, "in-place error", "42000", 100);
+    
+    EXPECT_TRUE(result.hasError());
+    EXPECT_EQ(result.error().message, "in-place error");
+    EXPECT_EQ(result.error().sqlState, "42000");
+}
+
+TEST_F(ResultTest, MoveOnlyType) {
+    struct MoveOnly {
+        int value;
+        MoveOnly(int v) : value(v) {}
+        MoveOnly(MoveOnly&&) = default;
+        MoveOnly& operator=(MoveOnly&&) = default;
+        MoveOnly(const MoveOnly&) = delete;
+        MoveOnly& operator=(const MoveOnly&) = delete;
+    };
+    
+    DbResult<MoveOnly> result(MoveOnly{42});
+    EXPECT_TRUE(result.hasValue());
+    EXPECT_EQ(result.value().value, 42);
+    
+    MoveOnly moved = std::move(result).value();
+    EXPECT_EQ(moved.value, 42);
+}
+
+TEST_F(ResultTest, ValueOrWithRvalue) {
+    DbResult<std::string> result = DbResult<std::string>::error(DbError{"error"});
+    
+    std::string value = std::move(result).valueOr("default");
+    EXPECT_EQ(value, "default");
+}
+
+TEST_F(ResultTest, ConstAccess) {
+    const DbResult<int> result(42);
+    
+    EXPECT_TRUE(result.hasValue());
+    EXPECT_EQ(result.value(), 42);
+    EXPECT_EQ(*result, 42);
+}

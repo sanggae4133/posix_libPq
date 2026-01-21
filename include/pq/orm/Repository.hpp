@@ -250,7 +250,7 @@ public:
             return int64_t{0};
         }
         
-        return result->row(0).get<int64_t>(0);
+        return result->row(0).template get<int64_t>(0);
     }
     
     /**

@@ -247,17 +247,28 @@ DbResult<QueryResult> Connection::executeParams(std::string_view sql, Args&&... 
         return DbResult<QueryResult>::error(DbError{"Not connected"});
     }
     
-    // Convert all parameters to strings
-    std::vector<ParamConverter<std::decay_t<Args>>> converters{
-        ParamConverter<std::decay_t<Args>>(std::forward<Args>(args))...
-    };
+    // Convert all parameters to strings and store them
+    std::vector<std::string> paramStrings;
+    std::vector<bool> paramNulls;
+    paramStrings.reserve(sizeof...(Args));
+    paramNulls.reserve(sizeof...(Args));
+    
+    // Use fold expression to convert each argument
+    (void)std::initializer_list<int>{(
+        [&](auto&& arg) {
+            using ArgType = std::decay_t<decltype(arg)>;
+            ParamConverter<ArgType> conv(std::forward<decltype(arg)>(arg));
+            paramStrings.push_back(std::move(conv.value));
+            paramNulls.push_back(conv.isNull);
+        }(std::forward<Args>(args)), 0
+    )...};
     
     // Build parameter arrays for PQexecParams
     std::vector<const char*> paramValues;
     paramValues.reserve(sizeof...(Args));
     
-    for (const auto& conv : converters) {
-        paramValues.push_back(conv.isNull ? nullptr : conv.ptr);
+    for (size_t i = 0; i < paramStrings.size(); ++i) {
+        paramValues.push_back(paramNulls[i] ? nullptr : paramStrings[i].c_str());
     }
     
     NullTerminatedString sqlStr(sql);
