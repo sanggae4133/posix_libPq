@@ -90,14 +90,16 @@ else()
 endif()
 
 # PostgreSQL::PostgreSQL imported target이 없으면 직접 생성
-# (서브디렉토리로 사용될 때 안정적으로 include 경로 전파를 위함)
+# GLOBAL: 모든 디렉토리에서 이 target을 볼 수 있도록 함 (서브디렉토리로 사용 시 필수)
 if(NOT TARGET PostgreSQL::PostgreSQL)
-    add_library(PostgreSQL::PostgreSQL UNKNOWN IMPORTED)
+    add_library(PostgreSQL::PostgreSQL UNKNOWN IMPORTED GLOBAL)
     set_target_properties(PostgreSQL::PostgreSQL PROPERTIES
         IMPORTED_LOCATION "${PostgreSQL_LIBRARIES}"
         INTERFACE_INCLUDE_DIRECTORIES "${PostgreSQL_INCLUDE_DIRS}"
     )
-    message(STATUS "Created PostgreSQL::PostgreSQL imported target")
+    message(STATUS "Created PostgreSQL::PostgreSQL imported target (GLOBAL)")
+    message(STATUS "  Include: ${PostgreSQL_INCLUDE_DIRS}")
+    message(STATUS "  Library: ${PostgreSQL_LIBRARIES}")
 endif()
 
 # ============================================================================
