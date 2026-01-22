@@ -71,6 +71,17 @@ if(PQ_LIBPQ_INCLUDE_DIR AND PQ_LIBPQ_LIBRARY)
     set(PostgreSQL_FOUND TRUE)
 else()
     # Auto-detect using CMake's FindPostgreSQL module
+    # Add hints for common installation paths (Homebrew on macOS)
+    if(APPLE)
+        # Homebrew paths: Apple Silicon (/opt/homebrew) and Intel (/usr/local)
+        list(APPEND CMAKE_PREFIX_PATH
+            "/opt/homebrew/opt/libpq"
+            "/opt/homebrew/opt/postgresql"
+            "/usr/local/opt/libpq"
+            "/usr/local/opt/postgresql"
+        )
+    endif()
+    
     find_package(PostgreSQL REQUIRED)
     
     if(PostgreSQL_FOUND)
@@ -111,13 +122,16 @@ target_include_directories(pq
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
-        ${PostgreSQL_INCLUDE_DIRS}
 )
 
-target_link_libraries(pq
-    PUBLIC
-        ${PostgreSQL_LIBRARIES}
-)
+# PostgreSQL 링크 - imported target 우선 사용 (서브디렉토리에서도 안정적)
+if(TARGET PostgreSQL::PostgreSQL)
+    target_link_libraries(pq PUBLIC PostgreSQL::PostgreSQL)
+else()
+    # 수동 경로 또는 구버전 CMake fallback
+    target_include_directories(pq PUBLIC ${PostgreSQL_INCLUDE_DIRS})
+    target_link_libraries(pq PUBLIC ${PostgreSQL_LIBRARIES})
+endif()
 
 target_compile_features(pq PUBLIC cxx_std_17)
 
