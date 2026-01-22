@@ -48,8 +48,6 @@ endif()
 # Use these to override automatic detection:
 #   cmake .. -DPQ_LIBPQ_INCLUDE_DIR=/path/to/include
 #   cmake .. -DPQ_LIBPQ_LIBRARY=/path/to/libpq.so
-set(PQ_LIBPQ_INCLUDE_DIR "" CACHE PATH "Manual path to libpq-fe.h directory")
-set(PQ_LIBPQ_LIBRARY "" CACHE FILEPATH "Manual path to libpq library (libpq.so/dylib/lib)")
 
 if(PQ_LIBPQ_INCLUDE_DIR AND PQ_LIBPQ_LIBRARY)
     # Use manually specified paths
@@ -89,6 +87,17 @@ else()
         message(STATUS "  Include: ${PostgreSQL_INCLUDE_DIRS}")
         message(STATUS "  Library: ${PostgreSQL_LIBRARIES}")
     endif()
+endif()
+
+# PostgreSQL::PostgreSQL imported target이 없으면 직접 생성
+# (서브디렉토리로 사용될 때 안정적으로 include 경로 전파를 위함)
+if(NOT TARGET PostgreSQL::PostgreSQL)
+    add_library(PostgreSQL::PostgreSQL UNKNOWN IMPORTED)
+    set_target_properties(PostgreSQL::PostgreSQL PROPERTIES
+        IMPORTED_LOCATION "${PostgreSQL_LIBRARIES}"
+        INTERFACE_INCLUDE_DIRECTORIES "${PostgreSQL_INCLUDE_DIRS}"
+    )
+    message(STATUS "Created PostgreSQL::PostgreSQL imported target")
 endif()
 
 # ============================================================================
