@@ -23,6 +23,7 @@
 // ORM components
 #include "orm/Entity.hpp"
 #include "orm/Mapper.hpp"
+#include "orm/SchemaValidator.hpp"
 #include "orm/Repository.hpp"
 
 /**
@@ -45,5 +46,10 @@ using core::PoolConfig;
 using orm::Repository;
 using orm::MapperConfig;
 using orm::ColumnFlags;
+using orm::SchemaValidator;
+using orm::SchemaValidationMode;
+using orm::ValidationIssue;
+using orm::ValidationIssueType;
+using orm::ValidationResult;
 
 } // namespace pq

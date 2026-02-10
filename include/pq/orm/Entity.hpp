@@ -72,6 +72,7 @@ struct ColumnInfo {
     Oid pgType;                      // PostgreSQL OID
     ColumnFlags flags;
     bool isNullable;
+    int maxLength{-1};               // VARCHAR/CHAR length limit (-1: unspecified)
     
     [[nodiscard]] bool isPrimaryKey() const noexcept {
         return hasFlag(flags, ColumnFlags::PrimaryKey);
@@ -80,6 +81,18 @@ struct ColumnInfo {
     [[nodiscard]] bool isAutoIncrement() const noexcept {
         return hasFlag(flags, ColumnFlags::AutoIncrement);
     }
+
+    [[nodiscard]] bool hasLengthLimit() const noexcept {
+        return maxLength > 0;
+    }
+};
+
+/**
+ * @brief Schema validation mode
+ */
+enum class SchemaValidationMode : uint8_t {
+    Strict,
+    Lenient
 };
 
 /**
@@ -111,6 +124,8 @@ inline constexpr bool isEntityV = IsEntity<T>::value;
 struct MapperConfig {
     bool strictColumnMapping = true;  // Throw error on unmapped columns
     bool ignoreExtraColumns = false;  // Override strict mapping for extra columns
+    bool autoValidateSchema = false;  // Validate schema on first repository use
+    SchemaValidationMode schemaValidationMode = SchemaValidationMode::Strict;
 };
 
 /**
@@ -162,7 +177,7 @@ public:
 private:
     std::string_view tableName_;
     DescriptorList columns_;
-    std::size_t primaryKeyIndex_{static_cast<std::size_t>(-1)};  // Use index instead of pointer
+    std::vector<std::size_t> primaryKeyIndices_;
     
 public:
     EntityMetadata(std::string_view tableName)
@@ -172,14 +187,16 @@ public:
     void addColumn(std::string_view fieldName,
                    std::string_view columnName,
                    FieldType Entity::* memberPtr,
-                   ColumnFlags flags = ColumnFlags::None) {
+                   ColumnFlags flags = ColumnFlags::None,
+                   int maxLength = -1) {
         ColumnDescriptor<Entity> desc;
         desc.info = ColumnInfo{
             fieldName,
             columnName,
             PgTypeTraits<FieldType>::pgOid,
             flags,
-            PgTypeTraits<FieldType>::isNullable
+            PgTypeTraits<FieldType>::isNullable,
+            maxLength
         };
         
         desc.toString = [memberPtr](const Entity& e) -> std::string {
@@ -211,7 +228,7 @@ public:
         columns_.push_back(std::move(desc));
         
         if (hasFlag(flags, ColumnFlags::PrimaryKey)) {
-            primaryKeyIndex_ = columns_.size() - 1;
+            primaryKeyIndices_.push_back(columns_.size() - 1);
         }
     }
     
@@ -224,10 +241,25 @@ public:
     }
     
     [[nodiscard]] const ColumnDescriptor<Entity>* primaryKey() const noexcept {
-        if (primaryKeyIndex_ == static_cast<std::size_t>(-1)) {
+        if (primaryKeyIndices_.empty()) {
             return nullptr;
         }
-        return &columns_[primaryKeyIndex_];
+        return &columns_[primaryKeyIndices_.front()];
+    }
+
+    [[nodiscard]] const std::vector<std::size_t>& primaryKeyIndices() const noexcept {
+        return primaryKeyIndices_;
+    }
+
+    [[nodiscard]] std::vector<const ColumnDescriptor<Entity>*> primaryKeys() const {
+        std::vector<const ColumnDescriptor<Entity>*> pks;
+        pks.reserve(primaryKeyIndices_.size());
+
+        for (const auto index : primaryKeyIndices_) {
+            pks.push_back(&columns_[index]);
+        }
+
+        return pks;
     }
     
     [[nodiscard]] const ColumnDescriptor<Entity>* findColumn(std::string_view name) const {
@@ -288,6 +320,19 @@ public:
 #define PQ_COLUMN(Field, ColumnName, ...)                                      \
     meta.addColumn(#Field, ColumnName, &_PqEntityType::Field,                  \
                    pq::orm::ColumnFlags::None __VA_OPT__(|) __VA_ARGS__);
+
+/**
+ * @brief Define a VARCHAR/CHAR-like column with length metadata
+ *
+ * @param Field The C++ member variable name
+ * @param ColumnName The PostgreSQL column name
+ * @param Length Maximum length (n in VARCHAR(n))
+ * @param ... Optional flags (PQ_PRIMARY_KEY, PQ_AUTO_INCREMENT, etc.)
+ */
+#define PQ_COLUMN_VARCHAR(Field, ColumnName, Length, ...)                       \
+    meta.addColumn(#Field, ColumnName, &_PqEntityType::Field,                  \
+                   pq::orm::ColumnFlags::None __VA_OPT__(|) __VA_ARGS__,       \
+                   Length);
 
 /**
  * @brief Shorthand for column where C++ field name matches column name
