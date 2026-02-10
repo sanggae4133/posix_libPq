@@ -10,22 +10,21 @@ namespace core {
 
 // PooledConnection implementation
 
-PooledConnection::PooledConnection(ConnectionPool* pool, std::unique_ptr<Connection> conn)
-    : pool_(pool)
+PooledConnection::PooledConnection(std::shared_ptr<ConnectionPoolState> state,
+                                   std::unique_ptr<Connection> conn)
+    : state_(std::move(state))
     , conn_(std::move(conn)) {}
 
 PooledConnection::PooledConnection(PooledConnection&& other) noexcept
-    : pool_(other.pool_)
+    : state_(std::move(other.state_))
     , conn_(std::move(other.conn_)) {
-    other.pool_ = nullptr;
 }
 
 PooledConnection& PooledConnection::operator=(PooledConnection&& other) noexcept {
     if (this != &other) {
         release();
-        pool_ = other.pool_;
+        state_ = std::move(other.state_);
         conn_ = std::move(other.conn_);
-        other.pool_ = nullptr;
     }
     return *this;
 }
@@ -39,21 +38,41 @@ bool PooledConnection::isValid() const noexcept {
 }
 
 void PooledConnection::release() {
-    if (pool_ && conn_) {
-        pool_->release(std::move(conn_));
-        pool_ = nullptr;
+    if (!conn_) {
+        state_.reset();
+        return;
     }
+
+    if (state_) {
+        std::lock_guard<std::mutex> lock(state_->mutex);
+
+        if (state_->activeCount > 0) {
+            --state_->activeCount;
+        }
+
+        if (!state_->shutdown && conn_->isConnected()) {
+            state_->idle.push_back(std::move(conn_));
+        } else {
+            conn_.reset();
+        }
+
+        state_->cv.notify_one();
+    }
+
+    conn_.reset();
+    state_.reset();
 }
 
 // ConnectionPool implementation
 
 ConnectionPool::ConnectionPool(const PoolConfig& config)
-    : config_(config) {
+    : config_(config)
+    , state_(std::make_shared<ConnectionPoolState>()) {
     // Pre-create minimum connections
     for (size_t i = 0; i < config_.minSize; ++i) {
         auto result = createConnection();
         if (result) {
-            idle_.push_back(std::move(*result));
+            state_->idle.push_back(std::move(*result));
         }
     }
 }
@@ -67,9 +86,9 @@ DbResult<PooledConnection> ConnectionPool::acquire() {
 }
 
 DbResult<PooledConnection> ConnectionPool::acquire(std::chrono::milliseconds timeout) {
-    std::unique_lock<std::mutex> lock(mutex_);
+    std::unique_lock<std::mutex> lock(state_->mutex);
     
-    if (shutdown_) {
+    if (state_->shutdown) {
         return DbResult<PooledConnection>::error(DbError{"Pool is shutdown"});
     }
     
@@ -77,85 +96,91 @@ DbResult<PooledConnection> ConnectionPool::acquire(std::chrono::milliseconds tim
     
     while (true) {
         // Try to get an idle connection
-        if (!idle_.empty()) {
-            auto conn = std::move(idle_.back());
-            idle_.pop_back();
-            
-            // Validate if configured
-            if (config_.validateOnAcquire && !validateConnection(*conn)) {
-                // Connection is bad, try again
+        if (!state_->idle.empty()) {
+            auto conn = std::move(state_->idle.back());
+            state_->idle.pop_back();
+            ++state_->activeCount;  // Reserve slot before releasing lock
+
+            lock.unlock();
+            const bool isValid = !config_.validateOnAcquire || validateConnection(*conn);
+            lock.lock();
+
+            if (state_->shutdown) {
+                if (state_->activeCount > 0) {
+                    --state_->activeCount;
+                }
+                return DbResult<PooledConnection>::error(DbError{"Pool is shutdown"});
+            }
+
+            if (!isValid) {
+                if (state_->activeCount > 0) {
+                    --state_->activeCount;
+                }
                 continue;
             }
-            
-            ++activeCount_;
-            return PooledConnection(this, std::move(conn));
+
+            lock.unlock();
+            return PooledConnection(state_, std::move(conn));
         }
         
-        // Try to create a new connection if under limit
-        if (activeCount_ + idle_.size() < config_.maxSize) {
+        // Reserve a create slot while holding the lock to enforce maxSize.
+        if (state_->activeCount + state_->idle.size() + state_->pendingCreates < config_.maxSize) {
+            ++state_->pendingCreates;
             lock.unlock();
             auto result = createConnection();
             lock.lock();
-            
-            if (result) {
-                ++activeCount_;
-                return PooledConnection(this, std::move(*result));
+
+            if (state_->pendingCreates > 0) {
+                --state_->pendingCreates;
             }
             
+            if (result) {
+                ++state_->activeCount;
+                lock.unlock();
+                return PooledConnection(state_, std::move(*result));
+            }
+            
+            state_->cv.notify_one();
             return DbResult<PooledConnection>::error(std::move(result).error());
         }
         
         // Wait for a connection to be returned
-        if (cv_.wait_until(lock, deadline) == std::cv_status::timeout) {
+        if (state_->cv.wait_until(lock, deadline) == std::cv_status::timeout) {
             return DbResult<PooledConnection>::error(
                 DbError{"Timeout waiting for connection from pool"});
         }
         
-        if (shutdown_) {
+        if (state_->shutdown) {
             return DbResult<PooledConnection>::error(DbError{"Pool is shutdown"});
         }
     }
 }
 
 size_t ConnectionPool::idleCount() const noexcept {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return idle_.size();
+    std::lock_guard<std::mutex> lock(state_->mutex);
+    return state_->idle.size();
 }
 
 size_t ConnectionPool::activeCount() const noexcept {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return activeCount_;
+    std::lock_guard<std::mutex> lock(state_->mutex);
+    return state_->activeCount;
 }
 
 size_t ConnectionPool::totalCount() const noexcept {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return activeCount_ + idle_.size();
+    std::lock_guard<std::mutex> lock(state_->mutex);
+    return state_->activeCount + state_->idle.size() + state_->pendingCreates;
 }
 
 void ConnectionPool::drain() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    idle_.clear();
+    std::lock_guard<std::mutex> lock(state_->mutex);
+    state_->idle.clear();
 }
 
 void ConnectionPool::shutdown() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    shutdown_ = true;
-    idle_.clear();
-    cv_.notify_all();
-}
-
-void ConnectionPool::release(std::unique_ptr<Connection> conn) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    
-    if (activeCount_ > 0) {
-        --activeCount_;
-    }
-    
-    if (!shutdown_ && conn && conn->isConnected()) {
-        idle_.push_back(std::move(conn));
-    }
-    
-    cv_.notify_one();
+    std::lock_guard<std::mutex> lock(state_->mutex);
+    state_->shutdown = true;
+    state_->idle.clear();
+    state_->cv.notify_all();
 }
 
 DbResult<std::unique_ptr<Connection>> ConnectionPool::createConnection() {

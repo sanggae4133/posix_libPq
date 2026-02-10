@@ -453,9 +453,13 @@ public:
     
     // 조회
     DbResult<std::optional<Entity>> findById(const PK& id);
+    template<typename... Args>
+    DbResult<std::optional<Entity>> findById(Args&&... ids);
     DbResult<std::vector<Entity>> findAll();
     DbResult<int64_t> count();
     DbResult<bool> existsById(const PK& id);
+    template<typename... Args>
+    DbResult<bool> existsById(Args&&... ids);
     
     // 수정
     DbResult<Entity> update(const Entity& entity);
@@ -463,6 +467,8 @@ public:
     // 삭제
     DbResult<int> remove(const Entity& entity);
     DbResult<int> removeById(const PK& id);
+    template<typename... Args>
+    DbResult<int> removeById(Args&&... ids);
     DbResult<int> removeAll(const std::vector<Entity>& entities);
     
     // 커스텀 쿼리
@@ -489,9 +495,64 @@ namespace pq::orm {
 struct MapperConfig {
     bool strictColumnMapping = true;
     bool ignoreExtraColumns = false;
+    bool autoValidateSchema = false;
+    SchemaValidationMode schemaValidationMode = SchemaValidationMode::Strict;
 };
 
 MapperConfig& defaultMapperConfig();
+
+} // namespace pq::orm
+```
+
+### SchemaValidator
+
+```cpp
+namespace pq::orm {
+
+enum class SchemaValidationMode : uint8_t {
+    Strict,
+    Lenient
+};
+
+enum class ValidationIssueType : uint8_t {
+    ConnectionError,
+    TableNotFound,
+    ColumnNotFound,
+    TypeMismatch,
+    NullableMismatch,
+    LengthMismatch,
+    ExtraColumn
+};
+
+struct ValidationIssue {
+    ValidationIssueType type;
+    std::string entityName;
+    std::string tableName;
+    std::string columnName;
+    std::string expected;
+    std::string actual;
+    std::string message;
+};
+
+struct ValidationResult {
+    std::vector<ValidationIssue> errors;
+    std::vector<ValidationIssue> warnings;
+
+    bool isValid() const noexcept;
+    std::size_t errorCount() const noexcept;
+    std::size_t warningCount() const noexcept;
+    std::string summary() const;
+};
+
+class SchemaValidator {
+public:
+    explicit SchemaValidator(SchemaValidationMode mode = SchemaValidationMode::Strict);
+
+    SchemaValidationMode mode() const noexcept;
+
+    template<typename Entity>
+    ValidationResult validate(core::Connection& conn) const;
+};
 
 } // namespace pq::orm
 ```
@@ -510,11 +571,14 @@ public:
     void addColumn(std::string_view fieldName,
                    std::string_view columnName,
                    FieldType Entity::* memberPtr,
-                   ColumnFlags flags = ColumnFlags::None);
+                   ColumnFlags flags = ColumnFlags::None,
+                   int maxLength = -1);
     
     std::string_view tableName() const noexcept;
     const std::vector<ColumnDescriptor<Entity>>& columns() const noexcept;
     const ColumnDescriptor<Entity>* primaryKey() const noexcept;
+    const std::vector<std::size_t>& primaryKeyIndices() const noexcept;
+    std::vector<const ColumnDescriptor<Entity>*> primaryKeys() const;
     const ColumnDescriptor<Entity>* findColumn(std::string_view name) const;
 };
 
@@ -549,6 +613,13 @@ struct PgTypeTraits;
 // - float
 // - double
 // - std::string
+// - Date
+// - Time
+// - std::chrono::system_clock::time_point (timestamp)
+// - TimestampTz (timestamptz)
+// - Numeric (numeric)
+// - Uuid (uuid)
+// - Jsonb (jsonb)
 // - std::optional<T>
 
 template<typename T>
@@ -611,5 +682,10 @@ namespace pq {
     using orm::Repository;
     using orm::MapperConfig;
     using orm::ColumnFlags;
+    using orm::SchemaValidator;
+    using orm::SchemaValidationMode;
+    using orm::ValidationIssue;
+    using orm::ValidationIssueType;
+    using orm::ValidationResult;
 }
 ```

@@ -24,6 +24,19 @@ class Repository;
 | `Entity` | The entity type (must be registered with `PQ_REGISTER_ENTITY`) |
 | `PK` | Primary key type (default: `int`) |
 
+For composite primary keys, use `std::tuple<...>` as `PK`.
+
+```cpp
+using OrderItemKey = std::tuple<int, int>;  // (order_id, product_id)
+pq::Repository<OrderItem, OrderItemKey> repo(conn);
+
+// Either tuple form:
+auto byTuple = repo.findById(std::make_tuple(1001, 42));
+
+// Or variadic form:
+auto byArgs = repo.findById(1001, 42);
+```
+
 ## CRUD Operations
 
 ### Create (save)
@@ -194,14 +207,17 @@ Repository(Connection& conn, const MapperConfig& config = defaultMapperConfig())
 |--------|-------------|-------------|
 | `save(entity)` | `DbResult<Entity>` | Save new entity, returns entity with generated ID |
 | `saveAll(entities)` | `DbResult<vector<Entity>>` | Save multiple entities |
-| `findById(id)` | `DbResult<optional<Entity>>` | Find by primary key |
+| `findById(id)` | `DbResult<optional<Entity>>` | Find by primary key (single or tuple) |
+| `findById(args...)` | `DbResult<optional<Entity>>` | Variadic find for tuple/composite PK (compile-time arity/type checks) |
 | `findAll()` | `DbResult<vector<Entity>>` | Find all entities |
 | `update(entity)` | `DbResult<Entity>` | Update existing entity |
 | `remove(entity)` | `DbResult<int>` | Remove entity by primary key |
-| `removeById(id)` | `DbResult<int>` | Remove by primary key |
+| `removeById(id)` | `DbResult<int>` | Remove by primary key (single or tuple) |
+| `removeById(args...)` | `DbResult<int>` | Variadic remove for tuple/composite PK (compile-time arity/type checks) |
 | `removeAll(entities)` | `DbResult<int>` | Remove multiple entities |
 | `count()` | `DbResult<int64_t>` | Count all entities |
-| `existsById(id)` | `DbResult<bool>` | Check if entity exists |
+| `existsById(id)` | `DbResult<bool>` | Check existence by primary key (single or tuple) |
+| `existsById(args...)` | `DbResult<bool>` | Variadic existence check for tuple/composite PK (compile-time arity/type checks) |
 | `executeQuery(sql, params)` | `DbResult<vector<Entity>>` | Execute custom query |
 | `executeQueryOne(sql, params)` | `DbResult<optional<Entity>>` | Execute query expecting 0-1 results |
 | `connection()` | `Connection&` | Get underlying connection |
@@ -213,6 +229,8 @@ Repository(Connection& conn, const MapperConfig& config = defaultMapperConfig())
 pq::MapperConfig config;
 config.strictColumnMapping = true;   // Error on unmapped columns
 config.ignoreExtraColumns = false;   // Don't ignore extra columns in result
+config.autoValidateSchema = true;    // Validate entity schema on first repository use
+config.schemaValidationMode = pq::SchemaValidationMode::Strict; // Strict or Lenient
 
 pq::Repository<User, int> userRepo(conn, config);
 ```
@@ -221,6 +239,8 @@ pq::Repository<User, int> userRepo(conn, config);
 |--------|---------|-------------|
 | `strictColumnMapping` | `true` | Throw error if result has columns not mapped to entity |
 | `ignoreExtraColumns` | `false` | When `true`, ignore extra columns instead of erroring |
+| `autoValidateSchema` | `false` | When `true`, run `SchemaValidator` once on first repository operation |
+| `schemaValidationMode` | `Strict` | Validation mode used by auto-validation (`Strict` / `Lenient`) |
 
 ## Generated SQL
 
@@ -241,6 +261,11 @@ UPDATE users SET name = $1, email = $2 WHERE id = $3 RETURNING *
 
 // remove() generates:
 DELETE FROM users WHERE id = $1
+
+// Composite PK example:
+SELECT * FROM order_items WHERE order_id = $1 AND product_id = $2
+UPDATE order_items SET quantity = $1 WHERE order_id = $2 AND product_id = $3 RETURNING *
+DELETE FROM order_items WHERE order_id = $1 AND product_id = $2
 ```
 
 ## Error Handling

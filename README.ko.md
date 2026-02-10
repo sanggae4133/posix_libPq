@@ -13,6 +13,9 @@ RAII 리소스 관리, 컴파일 타임 타입 안전성, Zero-Cost 추상화를
 - **타입 안전성** - `std::optional`을 활용한 NULL 처리와 컴파일 타임 타입 검사
 - **Zero-Cost 추상화** - libpq 직접 사용 대비 최소한의 오버헤드
 - **JPA 스타일 API** - 매크로 기반 선언적 Entity 매핑과 Repository 패턴
+- **복합 기본 키 지원** - 다중 PK Entity를 위한 tuple/variadic Repository API
+- **스키마 검증 지원** - 수동 `SchemaValidator` + Repository 첫 호출 자동 검증 옵션
+- **확장 PostgreSQL 타입 지원** - `timestamp`, `timestamptz`, `date`, `time`, `numeric`, `uuid`, `jsonb`
 - **커넥션 풀** - 고성능 애플리케이션을 위한 스레드 안전 커넥션 풀
 - **현대적 C++** - `std::optional`, `std::string_view`, 구조화된 바인딩 등 C++17 기능 활용
 
@@ -239,6 +242,7 @@ target_link_libraries(your_app PRIVATE pq::pq)
 - [커스텀 쿼리](docs/ko/custom-queries.md)
 - [API 레퍼런스](docs/ko/api-reference.md)
 - [타입 시스템](docs/ko/type-system.md)
+- [안정성 패치 노트 (2026-02)](docs/ko/stability-fixes-2026-02.md)
 
 ## 설계 원칙
 

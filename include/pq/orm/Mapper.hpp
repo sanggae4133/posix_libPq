@@ -13,6 +13,7 @@
 #include "../core/Result.hpp"
 #include <stdexcept>
 #include <set>
+#include <optional>
 
 namespace pq {
 namespace orm {
@@ -40,6 +41,20 @@ public:
     explicit EntityMapper(const MapperConfig& config = defaultMapperConfig())
         : meta_(EntityMeta<Entity>::metadata())
         , config_(config) {}
+
+    /**
+     * @brief Update mapper configuration
+     */
+    void setConfig(const MapperConfig& config) {
+        config_ = config;
+    }
+
+    /**
+     * @brief Get mapper configuration
+     */
+    [[nodiscard]] const MapperConfig& config() const noexcept {
+        return config_;
+    }
     
     /**
      * @brief Map a single row to an entity
@@ -186,21 +201,30 @@ public:
      * @brief Generate SELECT by primary key SQL
      */
     [[nodiscard]] std::string selectByIdSql() const {
-        const auto* pk = meta_.primaryKey();
-        if (!pk) {
+        const auto pks = meta_.primaryKeys();
+        if (pks.empty()) {
             throw std::logic_error("Entity has no primary key defined");
         }
-        
+
+        std::string whereClause;
+        int paramIndex = 1;
+        for (const auto* pk : pks) {
+            if (!whereClause.empty()) {
+                whereClause += " AND ";
+            }
+            whereClause += std::string(pk->info.columnName) + " = $" + std::to_string(paramIndex++);
+        }
+
         return "SELECT * FROM " + std::string(meta_.tableName()) +
-               " WHERE " + std::string(pk->info.columnName) + " = $1";
+               " WHERE " + whereClause;
     }
     
     /**
      * @brief Generate UPDATE SQL
      */
     [[nodiscard]] std::string updateSql() const {
-        const auto* pk = meta_.primaryKey();
-        if (!pk) {
+        const auto pks = meta_.primaryKeys();
+        if (pks.empty()) {
             throw std::logic_error("Entity has no primary key defined");
         }
         
@@ -218,10 +242,18 @@ public:
             
             sets += std::string(col.info.columnName) + " = $" + std::to_string(paramIndex++);
         }
-        
+
+        std::string whereClause;
+        for (const auto* pk : pks) {
+            if (!whereClause.empty()) {
+                whereClause += " AND ";
+            }
+            whereClause += std::string(pk->info.columnName) + " = $" + std::to_string(paramIndex++);
+        }
+
         return "UPDATE " + std::string(meta_.tableName()) +
                " SET " + sets +
-               " WHERE " + std::string(pk->info.columnName) + " = $" + std::to_string(paramIndex) +
+               " WHERE " + whereClause +
                " RETURNING *";
     }
     
@@ -229,21 +261,31 @@ public:
      * @brief Generate DELETE SQL
      */
     [[nodiscard]] std::string deleteSql() const {
-        const auto* pk = meta_.primaryKey();
-        if (!pk) {
+        const auto pks = meta_.primaryKeys();
+        if (pks.empty()) {
             throw std::logic_error("Entity has no primary key defined");
         }
-        
+
+        std::string whereClause;
+        int paramIndex = 1;
+        for (const auto* pk : pks) {
+            if (!whereClause.empty()) {
+                whereClause += " AND ";
+            }
+            whereClause += std::string(pk->info.columnName) + " = $" + std::to_string(paramIndex++);
+        }
+
         return "DELETE FROM " + std::string(meta_.tableName()) +
-               " WHERE " + std::string(pk->info.columnName) + " = $1";
+               " WHERE " + whereClause;
     }
     
     /**
      * @brief Get parameters for INSERT
      */
-    [[nodiscard]] std::vector<std::string> insertParams(const Entity& entity,
-                                                         bool includeAutoIncrement = false) const {
-        std::vector<std::string> params;
+    [[nodiscard]] std::vector<std::optional<std::string>> insertParams(
+            const Entity& entity,
+            bool includeAutoIncrement = false) const {
+        std::vector<std::optional<std::string>> params;
         
         for (const auto& col : meta_.columns()) {
             if (!includeAutoIncrement && col.info.isAutoIncrement()) {
@@ -251,9 +293,9 @@ public:
             }
             
             if (col.isNull(entity)) {
-                params.emplace_back();  // Empty for NULL
+                params.push_back(std::nullopt);
             } else {
-                params.push_back(col.toString(entity));
+                params.emplace_back(col.toString(entity));
             }
         }
         
@@ -263,9 +305,10 @@ public:
     /**
      * @brief Get parameters for UPDATE (values + pk)
      */
-    [[nodiscard]] std::vector<std::string> updateParams(const Entity& entity) const {
-        std::vector<std::string> params;
-        const auto* pk = meta_.primaryKey();
+    [[nodiscard]] std::vector<std::optional<std::string>> updateParams(
+            const Entity& entity) const {
+        std::vector<std::optional<std::string>> params;
+        const auto pks = meta_.primaryKeys();
         
         for (const auto& col : meta_.columns()) {
             if (col.info.isPrimaryKey()) {
@@ -273,29 +316,51 @@ public:
             }
             
             if (col.isNull(entity)) {
-                params.emplace_back();
+                params.push_back(std::nullopt);
             } else {
-                params.push_back(col.toString(entity));
+                params.emplace_back(col.toString(entity));
             }
         }
         
-        // Add primary key as last parameter
-        if (pk) {
-            params.push_back(pk->toString(entity));
+        // Add primary keys as last parameters
+        for (const auto* pk : pks) {
+            params.emplace_back(pk->toString(entity));
         }
         
         return params;
     }
     
     /**
-     * @brief Get primary key value as string
+     * @brief Get all primary key values as strings
      */
-    [[nodiscard]] std::string primaryKeyValue(const Entity& entity) const {
-        const auto* pk = meta_.primaryKey();
-        if (!pk) {
+    [[nodiscard]] std::vector<std::string> primaryKeyValues(const Entity& entity) const {
+        const auto pks = meta_.primaryKeys();
+        if (pks.empty()) {
             throw std::logic_error("Entity has no primary key defined");
         }
-        return pk->toString(entity);
+
+        std::vector<std::string> values;
+        values.reserve(pks.size());
+
+        for (const auto* pk : pks) {
+            values.push_back(pk->toString(entity));
+        }
+
+        return values;
+    }
+
+    /**
+     * @brief Get primary key value as string (single PK only)
+     */
+    [[nodiscard]] std::string primaryKeyValue(const Entity& entity) const {
+        const auto pks = meta_.primaryKeys();
+        if (pks.empty()) {
+            throw std::logic_error("Entity has no primary key defined");
+        }
+        if (pks.size() != 1) {
+            throw std::logic_error("Entity has composite primary key; use primaryKeyValues()");
+        }
+        return pks.front()->toString(entity);
     }
     
     /**

@@ -15,6 +15,13 @@ PosixLibPq는 `PgTypeTraits`를 사용하여 C++ 타입과 PostgreSQL 타입 간
 | `float` | `REAL` | 700 | `3.14f` |
 | `double` | `DOUBLE PRECISION` | 701 | `3.14159265359` |
 | `std::string` | `TEXT` | 25 | `"Hello, World!"` |
+| `Date` | `DATE` | 1082 | `{year, month, day}` |
+| `Time` | `TIME` | 1083 | `{hour, minute, second, millisecond}` |
+| `std::chrono::system_clock::time_point` | `TIMESTAMP` | 1114 | 밀리초 정밀도 |
+| `TimestampTz` | `TIMESTAMPTZ` | 1184 | UTC 시각 + 오프셋(분) |
+| `Numeric` | `NUMERIC` | 1700 | 문자열 기반 정밀도 보존 |
+| `Uuid` | `UUID` | 2950 | 문자열 기반 UUID |
+| `Jsonb` | `JSONB` | 3802 | 문자열 기반 JSONB |
 
 ### Nullable 타입
 
@@ -167,10 +174,9 @@ row.get<double>("double_col");      // DOUBLE PRECISION (8바이트)
 // float는 정밀도 손실 가능
 float f = 0.1f;  // 실제로는 0.10000000149...
 
-// 재무 데이터에는 NUMERIC/DECIMAL 권장
-// 현재 std::string으로 처리 후 직접 파싱 필요
-std::string numericStr = row.get<std::string>("price");
-// decimal 라이브러리로 파싱...
+// 재무 데이터에는 Numeric 래퍼 사용 권장 (정밀도 보존)
+pq::Numeric numeric = row.get<pq::Numeric>("price");
+std::string raw = numeric.value;
 ```
 
 ## 문자열 타입
@@ -298,27 +304,29 @@ namespace pq::oid {
 }
 ```
 
-## 미지원 타입
-
-현재 직접 지원하지 않는 타입 (문자열로 처리):
-
-- `NUMERIC` / `DECIMAL`
-- `DATE` / `TIME` / `TIMESTAMP`
-- `BYTEA` (바이너리)
-- `ARRAY` 타입
-- `JSON` / `JSONB`
-- `UUID`
-- 사용자 정의 타입
-
-이러한 타입은 `std::string`으로 읽은 후 직접 파싱할 수 있습니다:
+## 확장 타입 사용 예시
 
 ```cpp
-std::string timestamp = row.get<std::string>("created_at");
-// 타임스탬프 파싱...
-
-std::string json = row.get<std::string>("metadata");
-// JSON 파싱...
+pq::Date d = row.get<pq::Date>("ship_date");
+pq::Time t = row.get<pq::Time>("ship_time");
+auto ts = row.get<std::chrono::system_clock::time_point>("created_at");
+pq::TimestampTz tsTz = row.get<pq::TimestampTz>("updated_at");
+pq::Uuid id = row.get<pq::Uuid>("external_id");
+pq::Jsonb payload = row.get<pq::Jsonb>("payload");
 ```
+
+nullable 컬럼은 동일하게 `std::optional<T>`를 사용합니다:
+
+```cpp
+auto maybeAmount = row.get<std::optional<pq::Numeric>>("amount");
+auto maybePayload = row.get<std::optional<pq::Jsonb>>("payload");
+```
+
+## 현재 직접 미지원 타입
+
+- `BYTEA` (바이너리)
+- `ARRAY` 타입
+- 사용자 정의 복합 타입(별도 `PgTypeTraits` 특수화 필요)
 
 ## 다음 단계
 

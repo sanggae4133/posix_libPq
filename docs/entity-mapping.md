@@ -45,6 +45,17 @@ Maps a C++ field to a database column.
 | `ColumnName` | The database column name (string literal) |
 | `Flags` | Optional column flags (can be combined with `\|`) |
 
+### PQ_COLUMN_VARCHAR(Field, ColumnName, Length, Flags...)
+
+Maps a C++ field to a VARCHAR/CHAR-like column and stores max length metadata for schema validation.
+
+| Parameter | Description |
+|-----------|-------------|
+| `Field` | The C++ member variable name |
+| `ColumnName` | The database column name (string literal) |
+| `Length` | Maximum length (e.g. `VARCHAR(64)` -> `64`) |
+| `Flags` | Optional column flags (can be combined with `\|`) |
+
 ### PQ_ENTITY_END()
 
 Ends the entity mapping block.
@@ -83,6 +94,13 @@ PQ_COLUMN(email, "email", PQ_NOT_NULL | PQ_UNIQUE)
 | `float` | `REAL` | 700 |
 | `double` | `DOUBLE PRECISION` | 701 |
 | `std::string` | `TEXT` | 25 |
+| `Date` | `DATE` | 1082 |
+| `Time` | `TIME` | 1083 |
+| `std::chrono::system_clock::time_point` | `TIMESTAMP` | 1114 |
+| `TimestampTz` | `TIMESTAMPTZ` | 1184 |
+| `Numeric` | `NUMERIC` | 1700 |
+| `Uuid` | `UUID` | 2950 |
+| `Jsonb` | `JSONB` | 3802 |
 
 ### Nullable Types
 

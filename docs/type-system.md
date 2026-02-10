@@ -13,6 +13,13 @@ PosixLibPq provides a compile-time type system for mapping between C++ types and
 | `float` | `REAL` | 700 | |
 | `double` | `DOUBLE PRECISION` | 701 | |
 | `std::string` | `TEXT` | 25 | |
+| `Date` | `DATE` | 1082 | `{year, month, day}` |
+| `Time` | `TIME` | 1083 | `{hour, minute, second, millisecond}` |
+| `std::chrono::system_clock::time_point` | `TIMESTAMP` | 1114 | Millisecond precision |
+| `TimestampTz` | `TIMESTAMPTZ` | 1184 | UTC instant + offset minutes |
+| `Numeric` | `NUMERIC` | 1700 | String-backed precision preservation |
+| `Uuid` | `UUID` | 2950 | String-backed UUID |
+| `Jsonb` | `JSONB` | 3802 | String-backed JSONB |
 | `std::optional<T>` | Same as T | Same as T | NULL handling |
 
 ## PgTypeTraits
@@ -110,6 +117,34 @@ PgTypeTraits<double>::pgTypeName; // "double precision"
 PgTypeTraits<std::string>::pgOid;      // 25
 PgTypeTraits<std::string>::pgTypeName;  // "text"
 ```
+
+## Extended PostgreSQL Types
+
+The library includes value wrappers for temporal and precision-sensitive PostgreSQL types:
+
+```cpp
+using pq::Date;        // DATE
+using pq::Time;        // TIME
+using pq::TimestampTz; // TIMESTAMPTZ (instant + offset)
+using pq::Numeric;     // NUMERIC string wrapper
+using pq::Uuid;        // UUID string wrapper
+using pq::Jsonb;       // JSONB string wrapper
+```
+
+Examples:
+
+```cpp
+Date d{2026, 2, 10};
+Time t{14, 5, 6, 789};
+Numeric amount{"1234567890.123456789012345"};
+Uuid id{"550e8400-e29b-41d4-a716-446655440000"};
+Jsonb payload{R"({"kind":"event"})"};
+
+auto ts = std::chrono::system_clock::now();
+TimestampTz tsTz{ts, 9 * 60};  // +09:00
+```
+
+All of these support `std::optional<T>` for nullable columns and NULL-aware conversions.
 
 ## Optional (Nullable) Types
 

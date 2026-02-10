@@ -7,6 +7,7 @@
 #include <pq/core/Connection.hpp>
 #include <pq/core/Result.hpp>
 #include <string>
+#include <optional>
 
 using namespace pq;
 using namespace pq::core;
@@ -166,6 +167,21 @@ TEST_F(ConnectionTest, ExecuteParamsWithoutConnection) {
     
     EXPECT_FALSE(result.hasValue());
     EXPECT_TRUE(result.hasError());
+}
+
+TEST_F(ConnectionTest, ExecuteNullableParamsWithoutConnection) {
+    Connection conn;
+
+    std::vector<std::optional<std::string>> params = {
+        std::string{"value"},
+        std::nullopt
+    };
+
+    auto result = conn.execute("SELECT $1, $2", params);
+
+    EXPECT_FALSE(result.hasValue());
+    EXPECT_TRUE(result.hasError());
+    EXPECT_NE(result.error().message.find("Not connected"), std::string::npos);
 }
 
 TEST_F(ConnectionTest, PrepareWithoutConnection) {

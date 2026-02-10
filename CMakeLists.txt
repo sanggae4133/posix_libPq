@@ -123,6 +123,7 @@ set(PQ_HEADERS
     include/pq/core/ConnectionPool.hpp
     include/pq/orm/Entity.hpp
     include/pq/orm/Mapper.hpp
+    include/pq/orm/SchemaValidator.hpp
     include/pq/orm/Repository.hpp
 )
 

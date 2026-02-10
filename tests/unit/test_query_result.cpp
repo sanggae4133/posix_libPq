@@ -56,10 +56,23 @@ TEST_F(QueryResultTest, NullResultColumnOperations) {
 // Test QueryResult row access bounds checking
 TEST_F(QueryResultTest, RowAccessBoundsCheck) {
     QueryResult result(PgResultPtr(nullptr));
-    
-    EXPECT_THROW(result.row(0), std::out_of_range);
-    EXPECT_THROW(result.row(-1), std::out_of_range);
-    EXPECT_THROW(result[0], std::out_of_range);
+
+    auto rowAtZero = [&]() {
+        auto row = result.row(0);
+        (void)row;
+    };
+    auto rowAtMinusOne = [&]() {
+        auto row = result.row(-1);
+        (void)row;
+    };
+    auto bracketAtZero = [&]() {
+        auto row = result[0];
+        (void)row;
+    };
+
+    EXPECT_THROW(rowAtZero(), std::out_of_range);
+    EXPECT_THROW(rowAtMinusOne(), std::out_of_range);
+    EXPECT_THROW(bracketAtZero(), std::out_of_range);
 }
 
 // Test QueryResult move semantics

@@ -17,6 +17,7 @@
 #include <vector>
 #include <initializer_list>
 #include <memory>
+#include <optional>
 
 namespace pq {
 namespace core {
@@ -144,6 +145,12 @@ public:
      */
     DbResult<QueryResult> execute(std::string_view sql,
                                    const std::vector<std::string>& params);
+
+    /**
+     * @brief Execute a parameterized query with nullable parameters
+     */
+    DbResult<QueryResult> execute(std::string_view sql,
+                                   const std::vector<std::optional<std::string>>& params);
     
     /**
      * @brief Execute a parameterized query with typed parameters

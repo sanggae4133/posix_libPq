@@ -295,6 +295,115 @@ TEST_F(TypeTraitsTest, OidConstants) {
     EXPECT_EQ(oid::FLOAT4, 700u);
     EXPECT_EQ(oid::FLOAT8, 701u);
     EXPECT_EQ(oid::VARCHAR, 1043u);
+    EXPECT_EQ(oid::DATE, 1082u);
+    EXPECT_EQ(oid::TIME, 1083u);
+    EXPECT_EQ(oid::TIMESTAMP, 1114u);
+    EXPECT_EQ(oid::TIMESTAMPTZ, 1184u);
+    EXPECT_EQ(oid::NUMERIC, 1700u);
     EXPECT_EQ(oid::UUID, 2950u);
     EXPECT_EQ(oid::JSONB, 3802u);
+}
+
+TEST_F(TypeTraitsTest, DateTraitsRoundTrip) {
+    Date date{2026, 2, 10};
+
+    EXPECT_EQ(PgTypeTraits<Date>::pgOid, oid::DATE);
+    EXPECT_EQ(PgTypeTraits<Date>::toString(date), "2026-02-10");
+
+    const auto parsed = PgTypeTraits<Date>::fromString("2026-02-10");
+    EXPECT_EQ(parsed, date);
+}
+
+TEST_F(TypeTraitsTest, TimeTraitsRoundTripWithFractionalSeconds) {
+    Time time{12, 34, 56, 789};
+
+    EXPECT_EQ(PgTypeTraits<Time>::pgOid, oid::TIME);
+    EXPECT_EQ(PgTypeTraits<Time>::toString(time), "12:34:56.789");
+
+    const auto parsed = PgTypeTraits<Time>::fromString("12:34:56.789123");
+    EXPECT_EQ(parsed.hour, 12);
+    EXPECT_EQ(parsed.minute, 34);
+    EXPECT_EQ(parsed.second, 56);
+    EXPECT_EQ(parsed.millisecond, 789);
+}
+
+TEST_F(TypeTraitsTest, TimestampTraitsRoundTripPreservesMillisecondPrecision) {
+    const auto input = std::chrono::system_clock::time_point{} +
+                       std::chrono::milliseconds(1739186705123LL);
+
+    EXPECT_EQ(PgTypeTraits<std::chrono::system_clock::time_point>::pgOid, oid::TIMESTAMP);
+
+    const auto serialized =
+        PgTypeTraits<std::chrono::system_clock::time_point>::toString(input);
+    const auto parsed =
+        PgTypeTraits<std::chrono::system_clock::time_point>::fromString(serialized.c_str());
+
+    EXPECT_EQ(parsed, input);
+}
+
+TEST_F(TypeTraitsTest, TimestampTzTraitsRoundTripPreservesInstantAndOffset) {
+    TimestampTz value;
+    value.timePoint = std::chrono::system_clock::time_point{} +
+                      std::chrono::milliseconds(1739186705123LL);
+    value.offsetMinutes = 9 * 60;
+
+    EXPECT_EQ(PgTypeTraits<TimestampTz>::pgOid, oid::TIMESTAMPTZ);
+
+    const auto serialized = PgTypeTraits<TimestampTz>::toString(value);
+    EXPECT_NE(serialized.find("+09:00"), std::string::npos);
+
+    const auto parsed = PgTypeTraits<TimestampTz>::fromString(serialized.c_str());
+    EXPECT_EQ(parsed.timePoint, value.timePoint);
+    EXPECT_EQ(parsed.offsetMinutes, value.offsetMinutes);
+}
+
+TEST_F(TypeTraitsTest, NumericTraitsPreservePrecisionAsString) {
+    Numeric value{"123456789012345.123456789012345"};
+
+    EXPECT_EQ(PgTypeTraits<Numeric>::pgOid, oid::NUMERIC);
+    EXPECT_EQ(PgTypeTraits<Numeric>::toString(value), value.value);
+
+    const auto parsed = PgTypeTraits<Numeric>::fromString(value.value.c_str());
+    EXPECT_EQ(parsed, value);
+}
+
+TEST_F(TypeTraitsTest, UuidTraitsRoundTripAsString) {
+    Uuid value{"550e8400-e29b-41d4-a716-446655440000"};
+
+    EXPECT_EQ(PgTypeTraits<Uuid>::pgOid, oid::UUID);
+    EXPECT_EQ(PgTypeTraits<Uuid>::toString(value), value.value);
+
+    const auto parsed = PgTypeTraits<Uuid>::fromString(value.value.c_str());
+    EXPECT_EQ(parsed, value);
+}
+
+TEST_F(TypeTraitsTest, JsonbTraitsRoundTripAsString) {
+    Jsonb value{R"({"a":1,"nested":{"b":"x"}})"};
+
+    EXPECT_EQ(PgTypeTraits<Jsonb>::pgOid, oid::JSONB);
+    EXPECT_EQ(PgTypeTraits<Jsonb>::toString(value), value.value);
+
+    const auto parsed = PgTypeTraits<Jsonb>::fromString(value.value.c_str());
+    EXPECT_EQ(parsed, value);
+}
+
+TEST_F(TypeTraitsTest, OptionalNewTypesHandleNullValues) {
+    EXPECT_FALSE(PgTypeTraits<std::optional<Date>>::fromString(nullptr).has_value());
+    EXPECT_FALSE(PgTypeTraits<std::optional<Time>>::fromString(nullptr).has_value());
+    EXPECT_FALSE(PgTypeTraits<std::optional<std::chrono::system_clock::time_point>>::fromString(
+                     nullptr)
+                     .has_value());
+    EXPECT_FALSE(PgTypeTraits<std::optional<TimestampTz>>::fromString(nullptr).has_value());
+    EXPECT_FALSE(PgTypeTraits<std::optional<Numeric>>::fromString(nullptr).has_value());
+    EXPECT_FALSE(PgTypeTraits<std::optional<Uuid>>::fromString(nullptr).has_value());
+    EXPECT_FALSE(PgTypeTraits<std::optional<Jsonb>>::fromString(nullptr).has_value());
+
+    std::optional<Numeric> numeric = Numeric{"42.000000000000001"};
+    std::optional<Uuid> uuid = Uuid{"550e8400-e29b-41d4-a716-446655440000"};
+    std::optional<Jsonb> jsonb = Jsonb{R"({"ok":true})"};
+
+    EXPECT_EQ(PgTypeTraits<std::optional<Numeric>>::toString(numeric), "42.000000000000001");
+    EXPECT_EQ(PgTypeTraits<std::optional<Uuid>>::toString(uuid),
+              "550e8400-e29b-41d4-a716-446655440000");
+    EXPECT_EQ(PgTypeTraits<std::optional<Jsonb>>::toString(jsonb), R"({"ok":true})");
 }
