@@ -43,6 +43,20 @@ struct TestProduct {
 
 PQ_REGISTER_ENTITY(TestProduct)
 
+struct OrderItem {
+    int orderId{0};
+    int productId{0};
+    int quantity{0};
+
+    PQ_ENTITY(OrderItem, "order_items")
+        PQ_COLUMN(orderId, "order_id", PQ_PRIMARY_KEY)
+        PQ_COLUMN(productId, "product_id", PQ_PRIMARY_KEY)
+        PQ_COLUMN(quantity, "quantity", PQ_NOT_NULL)
+    PQ_ENTITY_END()
+};
+
+PQ_REGISTER_ENTITY(OrderItem)
+
 class EntityTest : public ::testing::Test {
 protected:
     void SetUp() override {}
@@ -123,6 +137,24 @@ TEST_F(EntityTest, PqColumnMacroPrimaryKeyFlag) {
     EXPECT_EQ(pk->info.columnName, "id");
     EXPECT_TRUE(pk->info.isPrimaryKey());
     EXPECT_TRUE(pk->info.isAutoIncrement());
+}
+
+TEST_F(EntityTest, CompositePrimaryKeyMetadata) {
+    const auto& meta = EntityMeta<OrderItem>::metadata();
+
+    const auto* pk = meta.primaryKey();
+    ASSERT_NE(pk, nullptr);
+    EXPECT_EQ(pk->info.columnName, "order_id");
+
+    const auto indices = meta.primaryKeyIndices();
+    ASSERT_EQ(indices.size(), 2u);
+    EXPECT_EQ(indices[0], 0u);
+    EXPECT_EQ(indices[1], 1u);
+
+    const auto pks = meta.primaryKeys();
+    ASSERT_EQ(pks.size(), 2u);
+    EXPECT_EQ(pks[0]->info.columnName, "order_id");
+    EXPECT_EQ(pks[1]->info.columnName, "product_id");
 }
 
 // T030: Unit test for PQ_REGISTER_ENTITY metadata access

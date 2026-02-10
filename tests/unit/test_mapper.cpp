@@ -47,6 +47,20 @@ struct MapperTestProduct {
 
 PQ_REGISTER_ENTITY(MapperTestProduct)
 
+struct MapperTestOrderItem {
+    int orderId{0};
+    int productId{0};
+    int quantity{0};
+
+    PQ_ENTITY(MapperTestOrderItem, "mapper_test_order_items")
+        PQ_COLUMN(orderId, "order_id", PQ_PRIMARY_KEY)
+        PQ_COLUMN(productId, "product_id", PQ_PRIMARY_KEY)
+        PQ_COLUMN(quantity, "quantity", PQ_NOT_NULL)
+    PQ_ENTITY_END()
+};
+
+PQ_REGISTER_ENTITY(MapperTestOrderItem)
+
 // Entity without primary key for error testing
 struct NoPkEntity {
     std::string value;
@@ -120,6 +134,15 @@ TEST_F(SqlBuilderTest, SelectByIdSqlProduct) {
     EXPECT_EQ(sql, "SELECT * FROM mapper_test_products WHERE product_id = $1");
 }
 
+TEST_F(SqlBuilderTest, SelectByIdSqlCompositePrimaryKey) {
+    SqlBuilder<MapperTestOrderItem> builder;
+
+    std::string sql = builder.selectByIdSql();
+
+    EXPECT_EQ(sql,
+              "SELECT * FROM mapper_test_order_items WHERE order_id = $1 AND product_id = $2");
+}
+
 TEST_F(SqlBuilderTest, UpdateSql) {
     SqlBuilder<MapperTestUser> builder;
     
@@ -141,6 +164,16 @@ TEST_F(SqlBuilderTest, UpdateSqlProduct) {
     EXPECT_NE(sql.find("WHERE product_id = $5"), std::string::npos);
 }
 
+TEST_F(SqlBuilderTest, UpdateSqlCompositePrimaryKey) {
+    SqlBuilder<MapperTestOrderItem> builder;
+
+    std::string sql = builder.updateSql();
+
+    EXPECT_EQ(sql,
+              "UPDATE mapper_test_order_items SET quantity = $1 "
+              "WHERE order_id = $2 AND product_id = $3 RETURNING *");
+}
+
 TEST_F(SqlBuilderTest, DeleteSql) {
     SqlBuilder<MapperTestUser> builder;
     
@@ -155,6 +188,15 @@ TEST_F(SqlBuilderTest, DeleteSqlProduct) {
     std::string sql = builder.deleteSql();
     
     EXPECT_EQ(sql, "DELETE FROM mapper_test_products WHERE product_id = $1");
+}
+
+TEST_F(SqlBuilderTest, DeleteSqlCompositePrimaryKey) {
+    SqlBuilder<MapperTestOrderItem> builder;
+
+    std::string sql = builder.deleteSql();
+
+    EXPECT_EQ(sql,
+              "DELETE FROM mapper_test_order_items WHERE order_id = $1 AND product_id = $2");
 }
 
 TEST_F(SqlBuilderTest, InsertParams) {
@@ -256,6 +298,25 @@ TEST_F(SqlBuilderTest, UpdateParams) {
     EXPECT_EQ(*params[3], "42");  // Primary key last
 }
 
+TEST_F(SqlBuilderTest, UpdateParamsCompositePrimaryKey) {
+    SqlBuilder<MapperTestOrderItem> builder;
+
+    MapperTestOrderItem orderItem;
+    orderItem.orderId = 7;
+    orderItem.productId = 11;
+    orderItem.quantity = 3;
+
+    auto params = builder.updateParams(orderItem);
+
+    ASSERT_EQ(params.size(), 3u);
+    ASSERT_TRUE(params[0].has_value());
+    ASSERT_TRUE(params[1].has_value());
+    ASSERT_TRUE(params[2].has_value());
+    EXPECT_EQ(*params[0], "3");
+    EXPECT_EQ(*params[1], "7");
+    EXPECT_EQ(*params[2], "11");
+}
+
 TEST_F(SqlBuilderTest, PrimaryKeyValue) {
     SqlBuilder<MapperTestUser> builder;
     
@@ -278,6 +339,34 @@ TEST_F(SqlBuilderTest, PrimaryKeyValueInt64) {
     EXPECT_EQ(pkValue, "123456789012345");
 }
 
+TEST_F(SqlBuilderTest, PrimaryKeyValuesCompositePrimaryKey) {
+    SqlBuilder<MapperTestOrderItem> builder;
+
+    MapperTestOrderItem orderItem;
+    orderItem.orderId = 100;
+    orderItem.productId = 200;
+
+    auto pkValues = builder.primaryKeyValues(orderItem);
+
+    ASSERT_EQ(pkValues.size(), 2u);
+    EXPECT_EQ(pkValues[0], "100");
+    EXPECT_EQ(pkValues[1], "200");
+}
+
+TEST_F(SqlBuilderTest, PrimaryKeyValueCompositePrimaryKeyThrows) {
+    SqlBuilder<MapperTestOrderItem> builder;
+    MapperTestOrderItem orderItem;
+    orderItem.orderId = 1;
+    orderItem.productId = 2;
+
+    auto callPrimaryKeyValue = [&]() {
+        auto value = builder.primaryKeyValue(orderItem);
+        (void)value;
+    };
+
+    EXPECT_THROW(callPrimaryKeyValue(), std::logic_error);
+}
+
 TEST_F(SqlBuilderTest, MetadataAccess) {
     SqlBuilder<MapperTestUser> builder;
     
@@ -289,27 +378,59 @@ TEST_F(SqlBuilderTest, MetadataAccess) {
 
 TEST_F(SqlBuilderTest, NoPrimaryKeySelectById) {
     SqlBuilder<NoPkEntity> builder;
-    
-    EXPECT_THROW(builder.selectByIdSql(), std::logic_error);
+
+    auto callSelectByIdSql = [&]() {
+        auto sql = builder.selectByIdSql();
+        (void)sql;
+    };
+
+    EXPECT_THROW(callSelectByIdSql(), std::logic_error);
 }
 
 TEST_F(SqlBuilderTest, NoPrimaryKeyUpdate) {
     SqlBuilder<NoPkEntity> builder;
-    
-    EXPECT_THROW(builder.updateSql(), std::logic_error);
+
+    auto callUpdateSql = [&]() {
+        auto sql = builder.updateSql();
+        (void)sql;
+    };
+
+    EXPECT_THROW(callUpdateSql(), std::logic_error);
 }
 
 TEST_F(SqlBuilderTest, NoPrimaryKeyDelete) {
     SqlBuilder<NoPkEntity> builder;
-    
-    EXPECT_THROW(builder.deleteSql(), std::logic_error);
+
+    auto callDeleteSql = [&]() {
+        auto sql = builder.deleteSql();
+        (void)sql;
+    };
+
+    EXPECT_THROW(callDeleteSql(), std::logic_error);
 }
 
 TEST_F(SqlBuilderTest, NoPrimaryKeyValue) {
     SqlBuilder<NoPkEntity> builder;
     NoPkEntity entity;
-    
-    EXPECT_THROW(builder.primaryKeyValue(entity), std::logic_error);
+
+    auto callPrimaryKeyValue = [&]() {
+        auto value = builder.primaryKeyValue(entity);
+        (void)value;
+    };
+
+    EXPECT_THROW(callPrimaryKeyValue(), std::logic_error);
+}
+
+TEST_F(SqlBuilderTest, NoPrimaryKeyValues) {
+    SqlBuilder<NoPkEntity> builder;
+    NoPkEntity entity;
+
+    auto callPrimaryKeyValues = [&]() {
+        auto values = builder.primaryKeyValues(entity);
+        (void)values;
+    };
+
+    EXPECT_THROW(callPrimaryKeyValues(), std::logic_error);
 }
 
 // ============================================================================

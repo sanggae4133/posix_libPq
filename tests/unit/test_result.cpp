@@ -112,14 +112,24 @@ TEST_F(ResultTest, ErrorWithSqlState) {
 
 TEST_F(ResultTest, ValueThrowsOnError) {
     auto result = DbResult<int>::error(DbError{"error"});
-    
-    EXPECT_THROW(result.value(), std::runtime_error);
+
+    auto callValue = [&]() {
+        auto value = result.value();
+        (void)value;
+    };
+
+    EXPECT_THROW(callValue(), std::runtime_error);
 }
 
 TEST_F(ResultTest, ErrorThrowsOnValue) {
     DbResult<int> result(42);
-    
-    EXPECT_THROW(result.error(), std::runtime_error);
+
+    auto callError = [&]() {
+        auto& error = result.error();
+        (void)error;
+    };
+
+    EXPECT_THROW(callError(), std::runtime_error);
 }
 
 TEST_F(ResultTest, MapToString) {
