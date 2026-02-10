@@ -13,6 +13,9 @@ A modern C++17 PostgreSQL ORM library featuring RAII resource management, compil
 - **Type Safety** - Compile-time type checking with `std::optional` for NULL handling
 - **Zero-Cost Abstractions** - Minimal overhead compared to raw libpq usage
 - **JPA-Like API** - Declarative entity mapping with macros and Repository pattern
+- **Composite Primary Key Support** - Tuple/variadic repository APIs for multi-column PK entities
+- **Schema Validation** - Manual `SchemaValidator` API and optional repository first-use auto-validation
+- **Extended PostgreSQL Types** - `timestamp`, `timestamptz`, `date`, `time`, `numeric`, `uuid`, `jsonb`
 - **Connection Pooling** - Thread-safe connection pool for high-performance applications
 - **Modern C++** - Uses C++17 features like `std::optional`, `std::string_view`, structured bindings
 
@@ -207,6 +210,7 @@ posixLibPq/
 │   ├── orm/                  # ORM layer
 │   │   ├── Entity.hpp        # Entity macros
 │   │   ├── Mapper.hpp        # Result-Entity mapping
+│   │   ├── SchemaValidator.hpp # Schema validation
 │   │   └── Repository.hpp    # Repository pattern
 │   └── pq.hpp               # Convenience header
 ├── src/core/                # Implementation files

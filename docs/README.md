@@ -21,6 +21,7 @@ Welcome to the PosixLibPq documentation. This library provides a modern C++17 Po
 - [**API Reference**](api-reference.md) - Complete API documentation
 - [**Type System**](type-system.md) - C++ to PostgreSQL type mapping
 - [**Stability Fixes (2026-02)**](stability-fixes-2026-02.md) - Concurrency and correctness patch notes
+- [**Spec Compliance (2026-02)**](spec-compliance-2026-02.md) - Implementation status vs enhancement spec
 
 ## Quick Links
 

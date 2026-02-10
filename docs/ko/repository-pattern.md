@@ -24,6 +24,19 @@ class Repository;
 | `Entity` | Entity 타입 (`PQ_REGISTER_ENTITY`로 등록되어야 함) |
 | `PK` | 기본 키 타입 (기본값: `int`) |
 
+복합 기본 키는 `PK`를 `std::tuple<...>`로 지정해서 사용합니다.
+
+```cpp
+using OrderItemKey = std::tuple<int, int>;  // (order_id, product_id)
+pq::Repository<OrderItem, OrderItemKey> repo(conn);
+
+// 튜플 형태
+auto byTuple = repo.findById(std::make_tuple(1001, 42));
+
+// 가변 인자 형태
+auto byArgs = repo.findById(1001, 42);
+```
+
 ## CRUD 작업
 
 ### 생성 (save)
@@ -194,14 +207,17 @@ Repository(Connection& conn, const MapperConfig& config = defaultMapperConfig())
 |--------|-----------|------|
 | `save(entity)` | `DbResult<Entity>` | 새 Entity 저장, 생성된 ID 포함 반환 |
 | `saveAll(entities)` | `DbResult<vector<Entity>>` | 여러 Entity 저장 |
-| `findById(id)` | `DbResult<optional<Entity>>` | 기본 키로 조회 |
+| `findById(id)` | `DbResult<optional<Entity>>` | 기본 키 조회 (단일/튜플) |
+| `findById(args...)` | `DbResult<optional<Entity>>` | 튜플/복합 PK용 가변 인자 조회 (컴파일 타임 개수/타입 검증) |
 | `findAll()` | `DbResult<vector<Entity>>` | 전체 Entity 조회 |
 | `update(entity)` | `DbResult<Entity>` | 기존 Entity 수정 |
 | `remove(entity)` | `DbResult<int>` | 기본 키로 Entity 삭제 |
-| `removeById(id)` | `DbResult<int>` | 기본 키로 삭제 |
+| `removeById(id)` | `DbResult<int>` | 기본 키 삭제 (단일/튜플) |
+| `removeById(args...)` | `DbResult<int>` | 튜플/복합 PK용 가변 인자 삭제 (컴파일 타임 개수/타입 검증) |
 | `removeAll(entities)` | `DbResult<int>` | 여러 Entity 삭제 |
 | `count()` | `DbResult<int64_t>` | 전체 Entity 개수 |
-| `existsById(id)` | `DbResult<bool>` | Entity 존재 여부 확인 |
+| `existsById(id)` | `DbResult<bool>` | 기본 키 존재 여부 확인 (단일/튜플) |
+| `existsById(args...)` | `DbResult<bool>` | 튜플/복합 PK용 가변 인자 존재 확인 (컴파일 타임 개수/타입 검증) |
 | `executeQuery(sql, params)` | `DbResult<vector<Entity>>` | 커스텀 쿼리 실행 |
 | `executeQueryOne(sql, params)` | `DbResult<optional<Entity>>` | 0-1개 결과 예상 쿼리 실행 |
 | `connection()` | `Connection&` | 기본 연결 가져오기 |
@@ -213,6 +229,8 @@ Repository(Connection& conn, const MapperConfig& config = defaultMapperConfig())
 pq::MapperConfig config;
 config.strictColumnMapping = true;   // 매핑되지 않은 컬럼에 에러
 config.ignoreExtraColumns = false;   // 결과의 추가 컬럼 무시 안 함
+config.autoValidateSchema = true;    // Repository 첫 사용 시 스키마 검증
+config.schemaValidationMode = pq::SchemaValidationMode::Strict; // Strict 또는 Lenient
 
 pq::Repository<User, int> userRepo(conn, config);
 ```
@@ -221,6 +239,8 @@ pq::Repository<User, int> userRepo(conn, config);
 |------|--------|------|
 | `strictColumnMapping` | `true` | 결과에 Entity에 매핑되지 않은 컬럼이 있으면 에러 |
 | `ignoreExtraColumns` | `false` | `true`면 에러 대신 추가 컬럼 무시 |
+| `autoValidateSchema` | `false` | `true`면 Repository 첫 작업 시 `SchemaValidator`를 1회 실행 |
+| `schemaValidationMode` | `Strict` | 자동 검증 시 사용할 모드 (`Strict` / `Lenient`) |
 
 ## 생성되는 SQL
 
@@ -241,6 +261,11 @@ UPDATE users SET name = $1, email = $2 WHERE id = $3 RETURNING *
 
 // remove()가 생성:
 DELETE FROM users WHERE id = $1
+
+// 복합 PK 예시:
+SELECT * FROM order_items WHERE order_id = $1 AND product_id = $2
+UPDATE order_items SET quantity = $1 WHERE order_id = $2 AND product_id = $3 RETURNING *
+DELETE FROM order_items WHERE order_id = $1 AND product_id = $2
 ```
 
 ## 에러 핸들링

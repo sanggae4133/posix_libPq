@@ -45,6 +45,17 @@ C++ 필드를 데이터베이스 컬럼에 매핑합니다.
 | `ColumnName` | 데이터베이스 컬럼 이름 (문자열 리터럴) |
 | `Flags` | 선택적 컬럼 플래그 (`\|`로 조합 가능) |
 
+### PQ_COLUMN_VARCHAR(Field, ColumnName, Length, Flags...)
+
+C++ 필드를 VARCHAR/CHAR 계열 컬럼에 매핑하고, 스키마 검증에 사용할 최대 길이 메타데이터를 함께 저장합니다.
+
+| 파라미터 | 설명 |
+|----------|------|
+| `Field` | C++ 멤버 변수 이름 |
+| `ColumnName` | 데이터베이스 컬럼 이름 (문자열 리터럴) |
+| `Length` | 최대 길이 (예: `VARCHAR(64)` -> `64`) |
+| `Flags` | 선택적 컬럼 플래그 (`\|`로 조합 가능) |
+
 ### PQ_ENTITY_END()
 
 Entity 매핑 블록을 종료합니다.
@@ -83,6 +94,13 @@ PQ_COLUMN(email, "email", PQ_NOT_NULL | PQ_UNIQUE)
 | `float` | `REAL` | 700 |
 | `double` | `DOUBLE PRECISION` | 701 |
 | `std::string` | `TEXT` | 25 |
+| `Date` | `DATE` | 1082 |
+| `Time` | `TIME` | 1083 |
+| `std::chrono::system_clock::time_point` | `TIMESTAMP` | 1114 |
+| `TimestampTz` | `TIMESTAMPTZ` | 1184 |
+| `Numeric` | `NUMERIC` | 1700 |
+| `Uuid` | `UUID` | 2950 |
+| `Jsonb` | `JSONB` | 3802 |
 
 ### Nullable 타입
 

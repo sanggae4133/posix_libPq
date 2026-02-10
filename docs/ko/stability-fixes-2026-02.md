@@ -32,6 +32,14 @@
 - `Repository<Entity, PK>`에서 문자열 계열 PK(`std::string`, `std::string_view`, `const char*`)를 지원합니다.
 - `repo.config()`로 설정 변경 시 내부 mapper 설정이 동기화되도록 수정했습니다.
 
+### 6) 복합 기본 키(Composite PK) 지원
+
+- `EntityMetadata`가 기본 키 인덱스를 단일 값이 아닌 목록으로 관리합니다.
+- `SqlBuilder`가 복합 PK WHERE 절(`pk1 = $1 AND pk2 = $2 ...`)을 생성합니다.
+- `Repository<Entity, std::tuple<...>>` 형태로 복합 키를 지원합니다.
+- `findById`, `existsById`, `removeById`에 복합 키용 가변 인자 호출을 지원합니다.
+- 복합 PK 엔티티를 scalar PK 타입으로 잘못 사용할 때 명확한 런타임 에러를 반환합니다.
+
 ## 마이그레이션 가이드
 
 1. SQL `NULL` 파라미터가 필요하면 다음 형식을 사용하세요.
@@ -52,4 +60,7 @@ conn.execute("INSERT INTO users(name, nickname) VALUES($1, $2)", params);
 
 - `tests/unit/test_repository.cpp` 추가: 문자열 계열 PK 템플릿 동작 커버.
 - `tests/unit/test_mapper.cpp` 갱신: optional 파라미터 벡터/빈 문자열 보존 검증.
+- `tests/scenario/test_composite_pk_scenarios.cpp` 추가: 스펙 시나리오 형태 복합 PK 동작 검증.
+- `tests/integration/test_repository_integration.cpp` 추가: 실제 PostgreSQL CRUD 통합 테스트 (`PQ_TEST_CONN_STR` 필요).
+- `tests/perf/test_sql_builder_perf.cpp` 추가: 경량 성능 회귀 가드 (`PQ_ENABLE_PERF_TESTS=1`일 때 실행).
 - 기존 단위 테스트와 함께 전체 테스트 통과를 확인했습니다.

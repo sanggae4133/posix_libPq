@@ -21,6 +21,7 @@ PosixLibPq 문서에 오신 것을 환영합니다. 이 라이브러리는 RAII 
 - [**API 레퍼런스**](api-reference.md) - 전체 API 문서
 - [**타입 시스템**](type-system.md) - C++에서 PostgreSQL로의 타입 매핑
 - [**안정성 패치 노트 (2026-02)**](stability-fixes-2026-02.md) - 동시성/정확성 개선 내역
+- [**스펙 준수 현황 (2026-02)**](spec-compliance-2026-02.md) - 개선 스펙 대비 구현 상태
 
 ## 빠른 예제
 

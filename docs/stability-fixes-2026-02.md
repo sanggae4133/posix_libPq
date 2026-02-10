@@ -31,6 +31,16 @@ This document summarizes stability and correctness fixes applied in February 202
 - `Repository<Entity, PK>` now supports string-like PK types (`std::string`, `std::string_view`, `const char*`) and trait-based types.
 - Runtime updates through `repo.config()` are now synchronized to the internal mapper.
 
+### 6) Composite primary key support
+
+- `EntityMetadata` now tracks primary key indices as a list.
+- `SqlBuilder` now generates composite PK WHERE clauses:
+  `pk1 = $1 AND pk2 = $2 ...`.
+- `Repository` supports tuple-based composite key usage:
+  `Repository<Entity, std::tuple<...>>`.
+- Variadic composite-key calls are available for `findById`, `existsById`, and `removeById`.
+- Clear runtime errors are returned when composite-key entities are used with scalar PK repository types.
+
 ## Migration Notes
 
 1. If you want SQL `NULL` parameters, use:
@@ -51,4 +61,7 @@ conn.execute("INSERT INTO users(name, nickname) VALUES($1, $2)", params);
 
 - `tests/unit/test_repository.cpp` added for PK template coverage with string-like types.
 - `tests/unit/test_mapper.cpp` updated for optional parameter vectors and empty-string preservation.
+- `tests/scenario/test_composite_pk_scenarios.cpp` added for spec-style composite PK behavior checks.
+- `tests/integration/test_repository_integration.cpp` added for real PostgreSQL CRUD flows (requires `PQ_TEST_CONN_STR`).
+- `tests/perf/test_sql_builder_perf.cpp` added for lightweight regression checks (enable with `PQ_ENABLE_PERF_TESTS=1`).
 - Existing unit tests continue to pass.
