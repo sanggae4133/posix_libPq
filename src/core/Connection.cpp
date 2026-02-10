@@ -124,8 +124,8 @@ DbResult<QueryResult> Connection::execute(std::string_view sql,
     std::vector<const char*> paramValues;
     paramValues.reserve(params.size());
     for (const auto& p : params) {
-        // Empty string represents NULL
-        paramValues.push_back(p.empty() ? nullptr : p.c_str());
+        // Keep empty strings as empty strings. Use optional overload for NULL.
+        paramValues.push_back(p.c_str());
     }
     
     NullTerminatedString sqlStr(sql);
@@ -147,6 +147,41 @@ DbResult<QueryResult> Connection::execute(std::string_view sql,
         return DbResult<QueryResult>::error(makeError(qr, "execute"));
     }
     
+    return qr;
+}
+
+DbResult<QueryResult> Connection::execute(
+        std::string_view sql,
+        const std::vector<std::optional<std::string>>& params) {
+    if (!isConnected()) {
+        return DbResult<QueryResult>::error(DbError{"Not connected"});
+    }
+
+    std::vector<const char*> paramValues;
+    paramValues.reserve(params.size());
+    for (const auto& p : params) {
+        paramValues.push_back(p ? p->c_str() : nullptr);
+    }
+
+    NullTerminatedString sqlStr(sql);
+
+    PgResultPtr result(PQexecParams(
+        conn_.get(),
+        sqlStr.c_str(),
+        static_cast<int>(paramValues.size()),
+        nullptr,  // Let PostgreSQL infer types
+        paramValues.data(),
+        nullptr,  // Text format
+        nullptr,  // Text format
+        0         // Text format result
+    ));
+
+    QueryResult qr(std::move(result));
+
+    if (!qr.isSuccess()) {
+        return DbResult<QueryResult>::error(makeError(qr, "execute"));
+    }
+
     return qr;
 }
 
@@ -245,12 +280,11 @@ DbResult<void> Connection::commit() {
     }
     
     auto result = execute("COMMIT");
-    inTransaction_ = false;
-    
     if (!result) {
         return DbResult<void>::error(std::move(result).error());
     }
-    
+
+    inTransaction_ = false;
     return DbResult<void>::ok();
 }
 
@@ -260,12 +294,11 @@ DbResult<void> Connection::rollback() {
     }
     
     auto result = execute("ROLLBACK");
-    inTransaction_ = false;
-    
     if (!result) {
         return DbResult<void>::error(std::move(result).error());
     }
-    
+
+    inTransaction_ = false;
     return DbResult<void>::ok();
 }
 

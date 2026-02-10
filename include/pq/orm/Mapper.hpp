@@ -13,6 +13,7 @@
 #include "../core/Result.hpp"
 #include <stdexcept>
 #include <set>
+#include <optional>
 
 namespace pq {
 namespace orm {
@@ -40,6 +41,20 @@ public:
     explicit EntityMapper(const MapperConfig& config = defaultMapperConfig())
         : meta_(EntityMeta<Entity>::metadata())
         , config_(config) {}
+
+    /**
+     * @brief Update mapper configuration
+     */
+    void setConfig(const MapperConfig& config) {
+        config_ = config;
+    }
+
+    /**
+     * @brief Get mapper configuration
+     */
+    [[nodiscard]] const MapperConfig& config() const noexcept {
+        return config_;
+    }
     
     /**
      * @brief Map a single row to an entity
@@ -241,9 +256,10 @@ public:
     /**
      * @brief Get parameters for INSERT
      */
-    [[nodiscard]] std::vector<std::string> insertParams(const Entity& entity,
-                                                         bool includeAutoIncrement = false) const {
-        std::vector<std::string> params;
+    [[nodiscard]] std::vector<std::optional<std::string>> insertParams(
+            const Entity& entity,
+            bool includeAutoIncrement = false) const {
+        std::vector<std::optional<std::string>> params;
         
         for (const auto& col : meta_.columns()) {
             if (!includeAutoIncrement && col.info.isAutoIncrement()) {
@@ -251,9 +267,9 @@ public:
             }
             
             if (col.isNull(entity)) {
-                params.emplace_back();  // Empty for NULL
+                params.push_back(std::nullopt);
             } else {
-                params.push_back(col.toString(entity));
+                params.emplace_back(col.toString(entity));
             }
         }
         
@@ -263,8 +279,9 @@ public:
     /**
      * @brief Get parameters for UPDATE (values + pk)
      */
-    [[nodiscard]] std::vector<std::string> updateParams(const Entity& entity) const {
-        std::vector<std::string> params;
+    [[nodiscard]] std::vector<std::optional<std::string>> updateParams(
+            const Entity& entity) const {
+        std::vector<std::optional<std::string>> params;
         const auto* pk = meta_.primaryKey();
         
         for (const auto& col : meta_.columns()) {
@@ -273,15 +290,15 @@ public:
             }
             
             if (col.isNull(entity)) {
-                params.emplace_back();
+                params.push_back(std::nullopt);
             } else {
-                params.push_back(col.toString(entity));
+                params.emplace_back(col.toString(entity));
             }
         }
         
         // Add primary key as last parameter
         if (pk) {
-            params.push_back(pk->toString(entity));
+            params.emplace_back(pk->toString(entity));
         }
         
         return params;

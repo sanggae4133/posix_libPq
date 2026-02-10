@@ -22,7 +22,7 @@ struct MapperTestUser {
     PQ_ENTITY(MapperTestUser, "mapper_test_users")
         PQ_COLUMN(id, "id", PQ_PRIMARY_KEY | PQ_AUTO_INCREMENT)
         PQ_COLUMN(name, "name", PQ_NOT_NULL)
-        PQ_COLUMN(email, "email")
+        PQ_COLUMN(email, "email", PQ_NONE)
         PQ_COLUMN(age, "age", PQ_NOT_NULL)
     PQ_ENTITY_END()
 };
@@ -40,8 +40,8 @@ struct MapperTestProduct {
         PQ_COLUMN(productId, "product_id", PQ_PRIMARY_KEY | PQ_AUTO_INCREMENT)
         PQ_COLUMN(productName, "product_name", PQ_NOT_NULL | PQ_UNIQUE)
         PQ_COLUMN(price, "price", PQ_NOT_NULL)
-        PQ_COLUMN(active, "is_active")
-        PQ_COLUMN(description, "description")
+        PQ_COLUMN(active, "is_active", PQ_NONE)
+        PQ_COLUMN(description, "description", PQ_NONE)
     PQ_ENTITY_END()
 };
 
@@ -52,7 +52,7 @@ struct NoPkEntity {
     std::string value;
     
     PQ_ENTITY(NoPkEntity, "no_pk_table")
-        PQ_COLUMN(value, "value")
+        PQ_COLUMN(value, "value", PQ_NONE)
     PQ_ENTITY_END()
 };
 
@@ -170,9 +170,12 @@ TEST_F(SqlBuilderTest, InsertParams) {
     
     // Should have 3 params (excluding auto-increment id)
     ASSERT_EQ(params.size(), 3u);
-    EXPECT_EQ(params[0], "John");
-    EXPECT_EQ(params[1], "john@example.com");
-    EXPECT_EQ(params[2], "30");
+    ASSERT_TRUE(params[0].has_value());
+    ASSERT_TRUE(params[1].has_value());
+    ASSERT_TRUE(params[2].has_value());
+    EXPECT_EQ(*params[0], "John");
+    EXPECT_EQ(*params[1], "john@example.com");
+    EXPECT_EQ(*params[2], "30");
 }
 
 TEST_F(SqlBuilderTest, InsertParamsWithNull) {
@@ -186,9 +189,30 @@ TEST_F(SqlBuilderTest, InsertParamsWithNull) {
     auto params = builder.insertParams(user);
     
     ASSERT_EQ(params.size(), 3u);
-    EXPECT_EQ(params[0], "Jane");
-    EXPECT_TRUE(params[1].empty());  // NULL represented as empty
-    EXPECT_EQ(params[2], "25");
+    ASSERT_TRUE(params[0].has_value());
+    EXPECT_EQ(*params[0], "Jane");
+    EXPECT_FALSE(params[1].has_value());  // NULL represented as nullopt
+    ASSERT_TRUE(params[2].has_value());
+    EXPECT_EQ(*params[2], "25");
+}
+
+TEST_F(SqlBuilderTest, InsertParamsPreservesEmptyStrings) {
+    SqlBuilder<MapperTestUser> builder;
+
+    MapperTestUser user;
+    user.name = "";
+    user.email = std::string{};
+    user.age = 18;
+
+    auto params = builder.insertParams(user);
+
+    ASSERT_EQ(params.size(), 3u);
+    ASSERT_TRUE(params[0].has_value());
+    ASSERT_TRUE(params[1].has_value());
+    ASSERT_TRUE(params[2].has_value());
+    EXPECT_EQ(*params[0], "");
+    EXPECT_EQ(*params[1], "");
+    EXPECT_EQ(*params[2], "18");
 }
 
 TEST_F(SqlBuilderTest, InsertParamsIncludeAutoIncrement) {
@@ -203,8 +227,10 @@ TEST_F(SqlBuilderTest, InsertParamsIncludeAutoIncrement) {
     auto params = builder.insertParams(user, true);
     
     ASSERT_EQ(params.size(), 4u);
-    EXPECT_EQ(params[0], "100");
-    EXPECT_EQ(params[1], "Test");
+    ASSERT_TRUE(params[0].has_value());
+    ASSERT_TRUE(params[1].has_value());
+    EXPECT_EQ(*params[0], "100");
+    EXPECT_EQ(*params[1], "Test");
 }
 
 TEST_F(SqlBuilderTest, UpdateParams) {
@@ -220,10 +246,14 @@ TEST_F(SqlBuilderTest, UpdateParams) {
     
     // Should have 4 params: name, email, age, id (pk last)
     ASSERT_EQ(params.size(), 4u);
-    EXPECT_EQ(params[0], "Updated");
-    EXPECT_EQ(params[1], "updated@example.com");
-    EXPECT_EQ(params[2], "35");
-    EXPECT_EQ(params[3], "42");  // Primary key last
+    ASSERT_TRUE(params[0].has_value());
+    ASSERT_TRUE(params[1].has_value());
+    ASSERT_TRUE(params[2].has_value());
+    ASSERT_TRUE(params[3].has_value());
+    EXPECT_EQ(*params[0], "Updated");
+    EXPECT_EQ(*params[1], "updated@example.com");
+    EXPECT_EQ(*params[2], "35");
+    EXPECT_EQ(*params[3], "42");  // Primary key last
 }
 
 TEST_F(SqlBuilderTest, PrimaryKeyValue) {
@@ -381,11 +411,15 @@ TEST_F(SqlBuilderTest, ProductInsertParams) {
     
     // 4 params (excluding auto-increment productId)
     ASSERT_EQ(params.size(), 4u);
-    EXPECT_EQ(params[0], "Widget");
+    ASSERT_TRUE(params[0].has_value());
+    EXPECT_EQ(*params[0], "Widget");
     // Price will be string representation
-    EXPECT_NE(params[1].find("19.99"), std::string::npos);
-    EXPECT_EQ(params[2], "t");  // bool true
-    EXPECT_EQ(params[3], "A great widget");
+    ASSERT_TRUE(params[1].has_value());
+    EXPECT_NE(params[1]->find("19.99"), std::string::npos);
+    ASSERT_TRUE(params[2].has_value());
+    ASSERT_TRUE(params[3].has_value());
+    EXPECT_EQ(*params[2], "t");  // bool true
+    EXPECT_EQ(*params[3], "A great widget");
 }
 
 TEST_F(SqlBuilderTest, ProductInsertParamsNullDescription) {
@@ -400,6 +434,7 @@ TEST_F(SqlBuilderTest, ProductInsertParamsNullDescription) {
     auto params = builder.insertParams(product);
     
     ASSERT_EQ(params.size(), 4u);
-    EXPECT_EQ(params[2], "f");  // bool false
-    EXPECT_TRUE(params[3].empty());  // NULL description
+    ASSERT_TRUE(params[2].has_value());
+    EXPECT_EQ(*params[2], "f");  // bool false
+    EXPECT_FALSE(params[3].has_value());  // NULL description
 }

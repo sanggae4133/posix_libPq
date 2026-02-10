@@ -30,9 +30,9 @@ struct User {
     // Entity mapping using macros
     PQ_ENTITY(User, "users")
         PQ_COLUMN(id, "id", PQ_PRIMARY_KEY | PQ_AUTO_INCREMENT)
-        PQ_COLUMN(name, "name")
-        PQ_COLUMN(email, "email")
-        PQ_COLUMN(age, "age")  // Nullable column
+        PQ_COLUMN(name, "name", PQ_NONE)
+        PQ_COLUMN(email, "email", PQ_NONE)
+        PQ_COLUMN(age, "age", PQ_NONE)  // Nullable column
     PQ_ENTITY_END()
 };
 
@@ -52,7 +52,7 @@ struct Product {
         PQ_COLUMN(id, "id", PQ_PRIMARY_KEY | PQ_AUTO_INCREMENT)
         PQ_COLUMN(name, "name", PQ_NOT_NULL)
         PQ_COLUMN(price, "price", PQ_NOT_NULL)
-        PQ_COLUMN(description, "description")
+        PQ_COLUMN(description, "description", PQ_NONE)
     PQ_ENTITY_END()
 };
 

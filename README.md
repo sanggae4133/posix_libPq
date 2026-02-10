@@ -239,6 +239,7 @@ target_link_libraries(your_app PRIVATE pq::pq)
 - [Custom Queries](docs/custom-queries.md)
 - [API Reference](docs/api-reference.md)
 - [Type System](docs/type-system.md)
+- [Stability Fixes (2026-02)](docs/stability-fixes-2026-02.md)
 
 ## Design Principles
 

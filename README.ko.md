@@ -239,6 +239,7 @@ target_link_libraries(your_app PRIVATE pq::pq)
 - [커스텀 쿼리](docs/ko/custom-queries.md)
 - [API 레퍼런스](docs/ko/api-reference.md)
 - [타입 시스템](docs/ko/type-system.md)
+- [안정성 패치 노트 (2026-02)](docs/ko/stability-fixes-2026-02.md)
 
 ## 설계 원칙
 

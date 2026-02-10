@@ -14,6 +14,7 @@
 #include "../core/Result.hpp"
 #include <vector>
 #include <optional>
+#include <type_traits>
 
 namespace pq {
 namespace orm {
@@ -52,6 +53,7 @@ class Repository {
     EntityMapper<Entity> mapper_;
     SqlBuilder<Entity> sqlBuilder_;
     MapperConfig config_;
+    MapperConfig mapperConfigSnapshot_;
     
 public:
     using EntityType = Entity;
@@ -66,7 +68,8 @@ public:
                         const MapperConfig& config = defaultMapperConfig())
         : conn_(conn)
         , mapper_(config)
-        , config_(config) {}
+        , config_(config)
+        , mapperConfigSnapshot_(config) {}
     
     /**
      * @brief Save a new entity to the database
@@ -88,7 +91,7 @@ public:
         }
         
         try {
-            return mapper_.mapRow((*result)[0]);
+            return mapper().mapRow((*result)[0]);
         } catch (const MappingException& e) {
             return DbResult<Entity>::error(DbError{e.what()});
         }
@@ -121,7 +124,7 @@ public:
      */
     [[nodiscard]] DbResult<std::optional<Entity>> findById(const PK& id) {
         auto sql = sqlBuilder_.selectByIdSql();
-        std::vector<std::string> params = {std::to_string(id)};
+        std::vector<std::string> params = {toPkString(id)};
         auto result = conn_.execute(sql, params);
         
         if (!result) {
@@ -133,7 +136,7 @@ public:
         }
         
         try {
-            return std::optional<Entity>{mapper_.mapRow((*result)[0])};
+            return std::optional<Entity>{mapper().mapRow((*result)[0])};
         } catch (const MappingException& e) {
             return DbResult<std::optional<Entity>>::error(DbError{e.what()});
         }
@@ -152,7 +155,7 @@ public:
         }
         
         try {
-            return mapper_.mapAll(*result);
+            return mapper().mapAll(*result);
         } catch (const MappingException& e) {
             return DbResult<std::vector<Entity>>::error(DbError{e.what()});
         }
@@ -178,7 +181,7 @@ public:
         }
         
         try {
-            return mapper_.mapRow((*result)[0]);
+            return mapper().mapRow((*result)[0]);
         } catch (const MappingException& e) {
             return DbResult<Entity>::error(DbError{e.what()});
         }
@@ -191,7 +194,7 @@ public:
      */
     [[nodiscard]] DbResult<int> removeById(const PK& id) {
         auto sql = sqlBuilder_.deleteSql();
-        std::vector<std::string> params = {std::to_string(id)};
+        std::vector<std::string> params = {toPkString(id)};
         auto result = conn_.execute(sql, params);
         if (!result) {
             return DbResult<int>::error(std::move(result).error());
@@ -267,7 +270,7 @@ public:
         auto sql = "SELECT 1 FROM " + std::string(meta.tableName()) +
                    " WHERE " + std::string(pk->info.columnName) + " = $1 LIMIT 1";
         
-        std::vector<std::string> params = {std::to_string(id)};
+        std::vector<std::string> params = {toPkString(id)};
         auto result = conn_.execute(sql, params);
         
         if (!result) {
@@ -293,7 +296,7 @@ public:
         }
         
         try {
-            return mapper_.mapAll(*result);
+            return mapper().mapAll(*result);
         } catch (const MappingException& e) {
             return DbResult<std::vector<Entity>>::error(DbError{e.what()});
         }
@@ -312,7 +315,7 @@ public:
         }
         
         try {
-            return mapper_.mapOne(*result);
+            return mapper().mapOne(*result);
         } catch (const MappingException& e) {
             return DbResult<std::optional<Entity>>::error(DbError{e.what()});
         }
@@ -330,6 +333,35 @@ public:
      */
     [[nodiscard]] MapperConfig& config() noexcept {
         return config_;
+    }
+
+private:
+    [[nodiscard]] EntityMapper<Entity>& mapper() {
+        syncMapperConfig();
+        return mapper_;
+    }
+
+    void syncMapperConfig() {
+        if (mapperConfigSnapshot_.strictColumnMapping != config_.strictColumnMapping ||
+            mapperConfigSnapshot_.ignoreExtraColumns != config_.ignoreExtraColumns) {
+            mapper_.setConfig(config_);
+            mapperConfigSnapshot_ = config_;
+        }
+    }
+
+    [[nodiscard]] static std::string toPkString(const PK& id) {
+        using PKDecay = std::decay_t<PK>;
+
+        if constexpr (std::is_same_v<PKDecay, std::string>) {
+            return id;
+        } else if constexpr (std::is_same_v<PKDecay, std::string_view>) {
+            return std::string(id);
+        } else if constexpr (std::is_same_v<PKDecay, const char*> ||
+                             std::is_same_v<PKDecay, char*>) {
+            return std::string(id);
+        } else {
+            return PgTypeTraits<PK>::toString(id);
+        }
     }
 };
 

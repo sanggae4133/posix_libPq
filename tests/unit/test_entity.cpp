@@ -20,7 +20,7 @@ struct TestUser {
     PQ_ENTITY(TestUser, "test_users")
         PQ_COLUMN(id, "id", PQ_PRIMARY_KEY | PQ_AUTO_INCREMENT)
         PQ_COLUMN(name, "name", PQ_NOT_NULL)
-        PQ_COLUMN(email, "email")
+        PQ_COLUMN(email, "email", PQ_NONE)
     PQ_ENTITY_END()
 };
 
@@ -37,7 +37,7 @@ struct TestProduct {
         PQ_COLUMN(id, "id", PQ_PRIMARY_KEY | PQ_AUTO_INCREMENT)
         PQ_COLUMN(name, "name", PQ_NOT_NULL | PQ_UNIQUE)
         PQ_COLUMN(price, "price", PQ_NOT_NULL)
-        PQ_COLUMN(active, "is_active")
+        PQ_COLUMN(active, "is_active", PQ_NONE)
     PQ_ENTITY_END()
 };
 

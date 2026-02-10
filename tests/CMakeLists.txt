@@ -8,6 +8,7 @@ add_executable(pq_unit_tests
     unit/test_query_result.cpp
     unit/test_connection.cpp
     unit/test_mapper.cpp
+    unit/test_repository.cpp
 )
 
 # Link GTest - handle both system-installed and FetchContent versions

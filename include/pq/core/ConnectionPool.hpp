@@ -33,6 +33,21 @@ struct PoolConfig {
     bool validateOnAcquire = true;                // Validate connection before returning
 };
 
+/**
+ * @brief Shared state for ConnectionPool and leased connections
+ *
+ * Kept in a shared_ptr so PooledConnection can safely release even when
+ * ConnectionPool object lifetime has ended.
+ */
+struct ConnectionPoolState {
+    std::vector<std::unique_ptr<Connection>> idle;
+    size_t activeCount{0};
+    size_t pendingCreates{0};
+    mutable std::mutex mutex;
+    std::condition_variable cv;
+    bool shutdown{false};
+};
+
 // Forward declaration
 class ConnectionPool;
 
@@ -42,12 +57,13 @@ class ConnectionPool;
  * Automatically returns connection to pool when destroyed.
  */
 class PooledConnection {
-    ConnectionPool* pool_;
+    std::shared_ptr<ConnectionPoolState> state_;
     std::unique_ptr<Connection> conn_;
     
     friend class ConnectionPool;
-    
-    PooledConnection(ConnectionPool* pool, std::unique_ptr<Connection> conn);
+
+    PooledConnection(std::shared_ptr<ConnectionPoolState> state,
+                     std::unique_ptr<Connection> conn);
     
 public:
     PooledConnection(PooledConnection&& other) noexcept;
@@ -94,15 +110,7 @@ public:
 class ConnectionPool {
     PoolConfig config_;
     
-    std::vector<std::unique_ptr<Connection>> idle_;
-    size_t activeCount_{0};
-    
-    mutable std::mutex mutex_;
-    std::condition_variable cv_;
-    
-    bool shutdown_{false};
-    
-    friend class PooledConnection;
+    std::shared_ptr<ConnectionPoolState> state_;
     
 public:
     /**
@@ -151,11 +159,6 @@ public:
     void shutdown();
     
 private:
-    /**
-     * @brief Return a connection to the pool
-     */
-    void release(std::unique_ptr<Connection> conn);
-    
     /**
      * @brief Create a new connection
      */

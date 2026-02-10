@@ -31,6 +31,7 @@
 #include <tuple>
 #include <functional>
 #include <type_traits>
+#include <mutex>
 
 namespace pq {
 namespace orm {
@@ -197,13 +198,15 @@ public:
             }
         };
         
-        desc.isNull = [memberPtr](const Entity& e) -> bool {
-            if constexpr (isOptionalV<FieldType>) {
+        if constexpr (isOptionalV<FieldType>) {
+            desc.isNull = [memberPtr](const Entity& e) -> bool {
                 return !(e.*memberPtr).has_value();
-            } else {
+            };
+        } else {
+            desc.isNull = [](const Entity&) -> bool {
                 return false;
-            }
-        };
+            };
+        }
         
         columns_.push_back(std::move(desc));
         
@@ -266,11 +269,10 @@ public:
                                                                                \
     static pq::orm::EntityMetadata<EntityType>& _pqMetadata() {                \
         static pq::orm::EntityMetadata<EntityType> meta(TableName);            \
-        static bool initialized = false;                                       \
-        if (!initialized) {                                                    \
-            initialized = true;                                                \
+        static std::once_flag initialized;                                     \
+        std::call_once(initialized, []() {                                     \
             _pqRegisterColumns(meta);                                          \
-        }                                                                      \
+        });                                                                    \
         return meta;                                                           \
     }                                                                          \
                                                                                \
